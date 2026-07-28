@@ -40,12 +40,23 @@ node test-lab/scripts/run-test-matrix.js --profile quick
 ## Pull requests
 
 1. Keep changes focused and explain their user-visible effect.
-2. Add or update tests and documentation when behavior changes.
-3. Run the Gradle build and the relevant test-lab targets.
-4. Do not commit generated build output, credentials, production data, or
+2. Write the pull request title as a [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/)
+   (`fix:`, `feat:`, `docs:`, `feat!:` for a breaking change). It becomes the
+   squashed commit message, and the changelog and next version are generated
+   from it.
+3. Add or update tests and documentation when behavior changes.
+4. Run the Gradle build and the relevant test-lab targets.
+5. Do not commit generated build output, credentials, production data, or
    proprietary ServersPulse service code.
-5. Agree that your contribution is provided under the Apache License 2.0.
+6. Agree that your contribution is provided under the Apache License 2.0.
 
 Maintainers may ask for compatibility evidence on the Minecraft and platform
-versions affected by a change. Releases are produced by maintainers from signed
-version tags after CI succeeds.
+versions affected by a change.
+
+## Releases
+
+Releases are automated with [release-please](https://github.com/googleapis/release-please).
+Merging to `main` opens or updates a release pull request that bumps `version`
+in `gradle.properties` and writes `CHANGELOG.md`. Merging that pull request
+tags the version, publishes the GitHub release, and attaches the platform jars
+built from the tag. Do not bump the version or edit the changelog by hand.

@@ -55,7 +55,7 @@ object VersionResolver {
 
     fun resolveCapabilities(info: ServerInfo): BukkitVersionCapabilities {
         val isPaperBased = info.platformId in PAPER_FORKS
-        val minor = info.majorMinor.getOrElse(1) { 0 }  // MC minor version (e.g. 21 in 1.21.4)
+        val featureLevel = featureLevel(info.majorMinor)
 
         // Bukkit.getTPS() / Server.getTPS():
         //   Not present on CraftBukkit.
@@ -70,10 +70,10 @@ object VersionResolver {
         val supportsMspt = hasMsptMethod()
 
         // Native tick times array: Paper 1.19+ (and forks)
-        val supportsNativeTickTimes = isPaperBased && minor >= 19
+        val supportsNativeTickTimes = isPaperBased && featureLevel >= 19
 
         // Async chunk stats: Paper 1.13+ (and forks)
-        val supportsAsyncChunkStats = isPaperBased && minor >= 13
+        val supportsAsyncChunkStats = isPaperBased && featureLevel >= 13
 
         return BukkitVersionCapabilities(
             supportsMspt = supportsMspt,
@@ -140,11 +140,42 @@ object VersionResolver {
     }
 
     /**
-     * Parses "1.21.4" into [1, 21, 4].
+     * Parses "1.21.4" into [1, 21, 4], and "26.2" into [26, 2].
      */
     private fun parseMcVersion(version: String): IntArray {
         return version.split(".")
             .mapNotNull { it.toIntOrNull() }
             .toIntArray()
     }
+
+    /**
+     * Collapses both Minecraft version schemes onto one increasing ordinal.
+     *
+     * Every release up to 1.21.11 used `1.MINOR.PATCH`, where the meaningful
+     * ordinal is the second component (the 21 in 1.21.4). Starting with 26.1
+     * Minecraft moved to a calendar-style `YY.RELEASE` scheme, where the
+     * meaningful ordinal is the first component instead.
+     *
+     * Reading the second component unconditionally makes 26.2 look like
+     * "minor 2" -- older than 1.13 -- which silently switched off native tick
+     * times and async chunk stats on the newest Paper servers. Calendar-scheme
+     * releases therefore map above every legacy value.
+     */
+    private fun featureLevel(parts: IntArray): Int {
+        val major = parts.getOrElse(0) { 0 }
+        return if (major <= LEGACY_SCHEME_MAJOR) {
+            parts.getOrElse(1) { 0 }
+        } else {
+            CALENDAR_SCHEME_FLOOR + major
+        }
+    }
+
+    /** Highest major version that used the legacy `1.MINOR.PATCH` scheme. */
+    private const val LEGACY_SCHEME_MAJOR = 1
+
+    /**
+     * Base offset for calendar-scheme releases, chosen to sit above any
+     * legacy minor version so ordering stays monotonic across the switch.
+     */
+    private const val CALENDAR_SCHEME_FLOOR = 1000
 }

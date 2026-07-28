@@ -1,7 +1,7 @@
 plugins {
-    id("net.neoforged.moddev") version "2.0.140"
-    id("org.jetbrains.kotlin.jvm") version "2.1.10"
-    id("com.gradleup.shadow") version "9.3.1"
+    alias(libs.plugins.neoforge.moddev)
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.shadow)
 }
 
 java {
@@ -14,7 +14,7 @@ kotlin {
 }
 
 neoForge {
-    version = "21.1.219"
+    version = libs.versions.neoforge.mc1211.get()
 
     runs {
         create("server") {
@@ -29,14 +29,14 @@ neoForge {
     }
 }
 
-val shade: Configuration by configurations.creating {
+val shade: Configuration = configurations.create("shade") {
     isTransitive = true
 }
 
 dependencies {
     implementation(project(":agent-core"))
     shade(project(":agent-core"))
-    shade("org.jetbrains.kotlin:kotlin-stdlib:2.1.10")
+    shade(libs.kotlin.stdlib)
 }
 
 tasks.shadowJar {
@@ -50,6 +50,10 @@ tasks.shadowJar {
     relocate("okhttp3", "com.serverspulse.libs.okhttp3")
     relocate("okio", "com.serverspulse.libs.okio")
     relocate("org.yaml.snakeyaml", "com.serverspulse.libs.snakeyaml")
+
+    exclude("com/google/errorprone/**")
+    exclude("org/intellij/lang/annotations/**")
+    exclude("org/jetbrains/annotations/**")
 }
 
 tasks.build {

@@ -12,6 +12,8 @@ author: bwmp
 website: https://serverspulse.com
 folia-supported: true
 
+api-version: '1.13'
+
 commands:
   serverspulse:
     description: ServersPulse agent management

@@ -44,10 +44,12 @@ tasks.register<Sync>("collectPlatformArtifacts") {
         ":platform-forge:v1.20.1:reobfShadowJar",
         ":platform-forge:v1.21.1:shadowJar",
         ":platform-forge:v1.21.11:shadowJar",
+        ":platform-forge:v26.2:shadowJar",
         ":platform-forge:v1.16.5:reobfShadowJar",
         // ":platform-forge:v1.12.2:reobfShadowJar",  // TODO: disabled pending FG2.3 setup
         ":platform-neoforge:shadowJar",
-        ":platform-neoforge:v1.20.6:shadowJar"
+        ":platform-neoforge:v1.20.6:shadowJar",
+        ":platform-neoforge:v26.1.2:shadowJar"
     )
 
     into(consolidatedArtifactsDir)
@@ -67,6 +69,9 @@ tasks.register<Sync>("collectPlatformArtifacts") {
     from(project(":platform-forge:v1.21.11").layout.buildDirectory.dir("libs")) {
         include("serverspulse-forge-1.21.11-${releaseVersion}.jar")
     }
+    from(project(":platform-forge:v26.2").layout.buildDirectory.dir("libs")) {
+        include("serverspulse-forge-26.2-${releaseVersion}.jar")
+    }
     from(project(":platform-forge:v1.16.5").layout.buildDirectory.dir("libs")) {
         include("serverspulse-forge-1.16.5-${releaseVersion}.jar")
     }
@@ -78,6 +83,9 @@ tasks.register<Sync>("collectPlatformArtifacts") {
     }
     from(project(":platform-neoforge:v1.20.6").layout.buildDirectory.dir("libs")) {
         include("serverspulse-neoforge-1.20.6-${releaseVersion}.jar")
+    }
+    from(project(":platform-neoforge:v26.1.2").layout.buildDirectory.dir("libs")) {
+        include("serverspulse-neoforge-26.1.2-${releaseVersion}.jar")
     }
 }
 

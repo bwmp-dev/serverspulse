@@ -33,6 +33,9 @@ class TransportClient(
         private const val LATEST_RELEASE_PATH = "/api/v1/releases/latest?channel=stable"
         private const val REGISTER_PATH = "/api/v1/auth/claim"
 
+        private val SEMVER =
+            Regex("""^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+.*)?$""")
+
         /**
          * Result of a one-time registration code redemption.
          * Exactly one of [apiKey] or [error] will be non-null.
@@ -73,8 +76,8 @@ class TransportClient(
 
             return try {
                 client.newCall(request).execute().use { response ->
-                    val responseBody = response.body?.string()
-                    if (response.isSuccessful && responseBody != null) {
+                    val responseBody = response.body.string()
+                    if (response.isSuccessful) {
                         @Suppress("UNCHECKED_CAST")
                         val data = gson.fromJson(responseBody, Map::class.java) as? Map<String, Any?>
                         val apiKey = data?.get("apiKey") as? String
@@ -147,7 +150,7 @@ class TransportClient(
         return try {
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    val errorBody = response.body?.string() ?: "no body"
+                    val errorBody = response.body.string().ifBlank { "no body" }
                     logger.warn("Agent info update rejected (${response.code}): $errorBody")
                     false
                 } else {
@@ -184,7 +187,7 @@ class TransportClient(
                     )
                 }
 
-                val responseBody = response.body?.string().orEmpty()
+                val responseBody = response.body.string()
                 val release = gson.fromJson(responseBody, ReleaseResponse::class.java)
                 val latestVersion = release.version?.trim().orEmpty()
                 if (latestVersion.isBlank()) {
@@ -247,8 +250,7 @@ class TransportClient(
     )
 
     private fun parseSemver(raw: String): Semver? {
-        val match = Regex("""^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-([0-9A-Za-z.-]+))?(?:\\+.*)?$""")
-            .matchEntire(raw.trim()) ?: return null
+        val match = SEMVER.matchEntire(raw.trim()) ?: return null
 
         val major = match.groupValues[1].toIntOrNull() ?: return null
         val minor = match.groupValues[2].toIntOrNull() ?: return null
@@ -293,7 +295,7 @@ class TransportClient(
                         return true
                     }
 
-                    val errorBody = response.body?.string() ?: "no body"
+                    val errorBody = response.body.string().ifBlank { "no body" }
                     logger.warn("Spark result upload rejected (${response.code}): $errorBody")
 
                     if (response.code in 400..499 && response.code != 429) {
@@ -344,7 +346,7 @@ class TransportClient(
         return try {
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    val errorBody = response.body?.string() ?: "no body"
+                    val errorBody = response.body.string().ifBlank { "no body" }
                     logger.warn("Player event rejected (${response.code}): $errorBody")
                     false
                 } else {
@@ -394,7 +396,7 @@ class TransportClient(
 
         httpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
-                val errorBody = response.body?.string() ?: "no body"
+                val errorBody = response.body.string().ifBlank { "no body" }
                 logger.debug("Ingest returned ${response.code}: $errorBody")
                 // Don't retry on 4xx client errors (bad key, validation failures)
                 if (response.code in 400..499) {
@@ -408,7 +410,10 @@ class TransportClient(
                 throw IOException("Server returned ${response.code}")
             }
 
-            val responseBody = response.body?.string() ?: return IngestResponse(status = "accepted", commands = null)
+            val responseBody = response.body.string()
+            if (responseBody.isBlank()) {
+                return IngestResponse(status = "accepted", commands = null)
+            }
             return try {
                 gson.fromJson(responseBody, IngestResponse::class.java)
             } catch (e: Exception) {

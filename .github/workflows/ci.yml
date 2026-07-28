@@ -16,10 +16,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Every toolchain the build targets. Gradle itself runs on the last entry
+      # (21); the others are picked up as toolchains via the JAVA_HOME_*_X64
+      # variables listed in gradle.properties. Java 25 is required by the
+      # Minecraft 26.x bands.
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: |
+            8
+            17
+            25
+            21
           cache: gradle
 
       - name: Build all agent artifacts

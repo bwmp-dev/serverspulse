@@ -1,7 +1,7 @@
 plugins {
-    id("fabric-loom") version "1.9-SNAPSHOT"
-    id("org.jetbrains.kotlin.jvm") version "2.1.10"
-    id("com.gradleup.shadow") version "9.3.1"
+    alias(libs.plugins.fabric.loom)
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.shadow)
 }
 
 java {
@@ -16,23 +16,26 @@ kotlin {
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
-        freeCompilerArgs.addAll("-Xjvm-default=all")
+        // Matches the serverspulse.base convention this module cannot apply.
+        jvmDefault.set(org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode.NO_COMPATIBILITY)
     }
 }
 
-val shade: Configuration by configurations.creating {
+val shade: Configuration = configurations.create("shade") {
     isTransitive = true
 }
 
 dependencies {
-    minecraft("com.mojang:minecraft:1.14.4")
-    mappings("net.fabricmc:yarn:1.14.4+build.18:v2")
-    modImplementation("net.fabricmc:fabric-loader:0.10.5+build.213")
-    modImplementation("net.fabricmc.fabric-api:fabric-api:0.28.5+1.14")
+    // Compiled against the oldest supported release; FabricCompat resolves
+    // everything newer reflectively, so one jar spans 1.14.4 through current.
+    minecraft(libs.fabric.minecraft)
+    mappings(variantOf(libs.fabric.yarn) { classifier("v2") })
+    modImplementation(libs.fabric.loader)
+    modImplementation(libs.fabric.api)
 
     implementation(project(":agent-core"))
     shade(project(":agent-core"))
-    shade("org.jetbrains.kotlin:kotlin-stdlib:2.1.10")
+    shade(libs.kotlin.stdlib)
 }
 
 tasks.shadowJar {
@@ -43,6 +46,11 @@ tasks.shadowJar {
     relocate("com.google.gson", "com.serverspulse.libs.gson")
     relocate("okhttp3", "com.serverspulse.libs.okhttp3")
     relocate("okio", "com.serverspulse.libs.okio")
+    relocate("org.yaml.snakeyaml", "com.serverspulse.libs.snakeyaml")
+
+    exclude("com/google/errorprone/**")
+    exclude("org/intellij/lang/annotations/**")
+    exclude("org/jetbrains/annotations/**")
 }
 
 tasks.remapJar {

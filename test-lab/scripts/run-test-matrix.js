@@ -253,13 +253,16 @@ function getJavaEnvForVersion(javaMajor) {
   const defaults = {
     8: "C:\\Program Files\\Eclipse Adoptium\\jdk-8.0.422.5-hotspot",
     17: "C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.12.7-hotspot",
-    21: "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.4.7-hotspot"
+    21: "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.4.7-hotspot",
+    // Minecraft 26.x requires Java 25.
+    25: "C:\\Program Files\\Eclipse Adoptium\\jdk-25.0.1.8-hotspot"
   };
 
   const candidates = {
     8: [env.SERVERPULSE_JAVA8_HOME, env.JAVA8_HOME, defaults[8]],
     17: [env.SERVERPULSE_JAVA17_HOME, env.JAVA17_HOME, defaults[17]],
-    21: [env.SERVERPULSE_JAVA21_HOME, env.JAVA21_HOME, env.JAVA_HOME, defaults[21]]
+    21: [env.SERVERPULSE_JAVA21_HOME, env.JAVA21_HOME, env.JAVA_HOME, defaults[21]],
+    25: [env.SERVERPULSE_JAVA25_HOME, env.JAVA25_HOME, defaults[25]]
   };
 
   const homes = candidates[javaMajor] || [];
@@ -274,6 +277,12 @@ function getJavaEnvForVersion(javaMajor) {
     return env;
   }
 
+  // Falling through means the server boots on whatever Java happens to be on
+  // PATH, which usually fails much later with an unhelpful error. Say so now.
+  process.stderr.write(
+    `WARNING: no JDK ${javaMajor} found; falling back to the ambient JAVA_HOME. ` +
+      `Set SERVERPULSE_JAVA${javaMajor}_HOME to run this test on the right runtime.\n`
+  );
   return env;
 }
 

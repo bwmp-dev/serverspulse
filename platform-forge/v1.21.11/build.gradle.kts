@@ -1,6 +1,6 @@
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "2.1.10"
-    id("com.gradleup.shadow") version "9.3.1"
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.shadow)
 }
 
 java {
@@ -18,10 +18,12 @@ sourceSets {
     }
 }
 
+// See the note in the 1.21.1 module: the 1.20.1 merged jar supplies the
+// Minecraft compile classpath for this band as well.
 val forge120MergedJar = project(":platform-forge:v1.20.1")
     .layout
     .buildDirectory
-    .file("moddev/artifacts/forge-1.20.1-47.3.0-merged.jar")
+    .file("moddev/artifacts/forge-${libs.versions.forge.mc1201.get()}-merged.jar")
 
 val minecraftCompileStubJar by tasks.registering(Jar::class) {
     archiveBaseName.set("minecraft-1.20.1-api")
@@ -36,7 +38,7 @@ val minecraftCompileStubJar by tasks.registering(Jar::class) {
     }
 }
 
-val shade: Configuration by configurations.creating {
+val shade: Configuration = configurations.create("shade") {
     isTransitive = true
 }
 
@@ -44,17 +46,17 @@ dependencies {
     implementation(project(":agent-core"))
 
     compileOnly(files(minecraftCompileStubJar.flatMap { it.archiveFile }))
-    compileOnly("net.minecraftforge:forge:1.21.11-61.1.1:universal@jar")
-    compileOnly("net.minecraftforge:eventbus:7.0.1")
-    compileOnly("net.minecraftforge:fmlloader:1.21.11-61.1.1")
-    compileOnly("net.minecraftforge:fmlcore:1.21.11-61.1.1")
-    compileOnly("net.minecraftforge:forgespi:8.0.0")
-    compileOnly("net.minecraftforge:javafmllanguage:1.21.11-61.1.1")
-    compileOnly("com.mojang:brigadier:1.3.10")
-    compileOnly("org.apache.logging.log4j:log4j-api:2.25.2")
+    compileOnly(variantOf(libs.forge.universal.mc12111) { classifier("universal") })
+    compileOnly(libs.forge.eventbus.mc12111)
+    compileOnly(libs.forge.fmlloader.mc12111)
+    compileOnly(libs.forge.fmlcore.mc12111)
+    compileOnly(libs.forge.spi.mc12111)
+    compileOnly(libs.forge.javafml.mc12111)
+    compileOnly(libs.brigadier)
+    compileOnly(libs.log4j.api)
 
     shade(project(":agent-core"))
-    shade("org.jetbrains.kotlin:kotlin-stdlib:2.1.10")
+    shade(libs.kotlin.stdlib)
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
@@ -80,6 +82,10 @@ tasks.shadowJar {
     relocate("okhttp3", "com.serverspulse.libs.okhttp3")
     relocate("okio", "com.serverspulse.libs.okio")
     relocate("org.yaml.snakeyaml", "com.serverspulse.libs.snakeyaml")
+
+    exclude("com/google/errorprone/**")
+    exclude("org/intellij/lang/annotations/**")
+    exclude("org/jetbrains/annotations/**")
 }
 
 tasks.jar {

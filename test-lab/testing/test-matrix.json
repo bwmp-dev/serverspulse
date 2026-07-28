@@ -11,8 +11,10 @@
       ":platform-forge:v1.20.1:reobfShadowJar",
       ":platform-forge:v1.21.1:shadowJar",
       ":platform-forge:v1.21.11:shadowJar",
+      ":platform-forge:v26.2:shadowJar",
       ":platform-neoforge:v1.20.6:shadowJar",
-      ":platform-neoforge:shadowJar"
+      ":platform-neoforge:shadowJar",
+      ":platform-neoforge:v26.1.2:shadowJar"
     ]
   },
   "profiles": {
@@ -21,35 +23,45 @@
       "fabric-high",
       "forge-1-20-1",
       "forge-1-21-11",
-      "neoforge-1-21-1"
+      "forge-26-2",
+      "neoforge-1-21-1",
+      "neoforge-26-1-2"
     ],
     "release": [
       "paper-low",
       "paper-high",
+      "paper-26-2",
       "fabric-low",
       "fabric-high",
+      "fabric-26-2",
       "forge-1-16-5",
       "forge-1-18-2",
       "forge-1-19-2",
       "forge-1-20-1",
       "forge-1-21-1",
       "forge-1-21-11",
+      "forge-26-2",
       "neoforge-1-20-6",
-      "neoforge-1-21-1"
+      "neoforge-1-21-1",
+      "neoforge-26-1-2"
     ],
     "full": [
       "paper-low",
       "paper-high",
+      "paper-26-2",
       "fabric-low",
       "fabric-high",
+      "fabric-26-2",
       "forge-1-16-5",
       "forge-1-18-2",
       "forge-1-19-2",
       "forge-1-20-1",
       "forge-1-21-1",
       "forge-1-21-11",
+      "forge-26-2",
       "neoforge-1-20-6",
-      "neoforge-1-21-1"
+      "neoforge-1-21-1",
+      "neoforge-26-1-2"
     ]
   },
   "tests": [
@@ -70,6 +82,14 @@
       "artifactPattern": "build/artifacts/serverspulse-bukkit-*.jar"
     },
     {
+      "id": "paper-26-2",
+      "label": "Paper 26.2",
+      "platform": "paper",
+      "minecraftVersion": "26.2",
+      "javaMajor": 25,
+      "artifactPattern": "build/artifacts/serverspulse-bukkit-*.jar"
+    },
+    {
       "id": "fabric-low",
       "label": "Fabric 1.14.4",
       "platform": "fabric",
@@ -83,6 +103,14 @@
       "platform": "fabric",
       "minecraftVersion": "1.21.11",
       "javaMajor": 21,
+      "artifactPattern": "build/artifacts/serverspulse-fabric-*.jar"
+    },
+    {
+      "id": "fabric-26-2",
+      "label": "Fabric 26.2",
+      "platform": "fabric",
+      "minecraftVersion": "26.2",
+      "javaMajor": 25,
       "artifactPattern": "build/artifacts/serverspulse-fabric-*.jar"
     },
     {
@@ -117,7 +145,7 @@
       "label": "Forge 1.20.1",
       "platform": "forge",
       "minecraftVersion": "1.20.1",
-      "forgeVersion": "47.3.0",
+      "forgeVersion": "47.4.22",
       "javaMajor": 17,
       "artifactPattern": "platform-forge/v1.20.1/build/libs/serverspulse-forge-1.20.1-*.jar"
     },
@@ -126,7 +154,7 @@
       "label": "Forge 1.21.1",
       "platform": "forge",
       "minecraftVersion": "1.21.1",
-      "forgeVersion": "52.1.2",
+      "forgeVersion": "52.1.16",
       "javaMajor": 21,
       "artifactPattern": "platform-forge/v1.21.1/build/libs/serverspulse-forge-1.21.1-*.jar"
     },
@@ -135,9 +163,18 @@
       "label": "Forge 1.21.11",
       "platform": "forge",
       "minecraftVersion": "1.21.11",
-      "forgeVersion": "61.1.1",
+      "forgeVersion": "61.1.14",
       "javaMajor": 21,
       "artifactPattern": "platform-forge/v1.21.11/build/libs/serverspulse-forge-1.21.11-*.jar"
+    },
+    {
+      "id": "forge-26-2",
+      "label": "Forge 26.2",
+      "platform": "forge",
+      "minecraftVersion": "26.2",
+      "forgeVersion": "65.1.0",
+      "javaMajor": 25,
+      "artifactPattern": "platform-forge/v26.2/build/libs/serverspulse-forge-26.2-*.jar"
     },
     {
       "id": "neoforge-1-20-6",
@@ -153,9 +190,18 @@
       "label": "NeoForge 1.21.1",
       "platform": "neoforge",
       "minecraftVersion": "1.21.1",
-      "neoforgeVersion": "21.1.219",
+      "neoforgeVersion": "21.1.244",
       "javaMajor": 21,
       "artifactPattern": "platform-neoforge/build/libs/serverspulse-neoforge-1.21.1-*.jar"
+    },
+    {
+      "id": "neoforge-26-1-2",
+      "label": "NeoForge 26.1.2",
+      "platform": "neoforge",
+      "minecraftVersion": "26.1.2",
+      "neoforgeVersion": "26.1.2.87",
+      "javaMajor": 25,
+      "artifactPattern": "platform-neoforge/v26.1.2/build/libs/serverspulse-neoforge-26.1.2-*.jar"
     }
   ]
 }

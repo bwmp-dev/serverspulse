@@ -38,22 +38,32 @@ matrix. Versions between tested endpoints are intended to work where a range is
 shown, but the explicitly tested versions provide the strongest compatibility
 signal.
 
+Minecraft changed its version scheme after 1.21.11: the releases that follow are
+numbered `26.1`, `26.2`, and so on. Both schemes appear in the table below.
+
 | Platform | Intended Minecraft versions | Explicit test coverage | Artifact |
 | --- | --- | --- | --- |
-| Bukkit / Spigot / Paper / Purpur / Folia | 1.8.8–1.21.11 | Paper 1.8.8 and 1.21.11 | `serverspulse-bukkit-*.jar` |
-| Fabric | 1.14.4–1.21.11 | Fabric 1.14.4 and 1.21.11 | `serverspulse-fabric-*.jar` |
+| Bukkit / Spigot / Paper / Purpur / Folia | 1.8.8–26.2 | Paper 1.8.8, 1.21.11, and 26.2 | `serverspulse-bukkit-*.jar` |
+| Fabric | 1.14.4–26.2 | Fabric 1.14.4, 1.21.11, and 26.2 | `serverspulse-fabric-*.jar` |
 | Forge | 1.16.5 | Forge 1.16.5 | `serverspulse-forge-1.16.5-*.jar` |
 | Forge | 1.18.2–1.20.6 | Forge 1.18.2, 1.19.2, and 1.20.1 | `serverspulse-forge-1.20.1-*.jar` |
 | Forge | 1.21.1–1.21.10 | Forge 1.21.1 | `serverspulse-forge-1.21.1-*.jar` |
 | Forge | 1.21.11 | Forge 1.21.11 | `serverspulse-forge-1.21.11-*.jar` |
+| Forge | 26.2 | Forge 26.2 | `serverspulse-forge-26.2-*.jar` |
 | NeoForge | 1.20.6–1.20.x | NeoForge 1.20.6 | `serverspulse-neoforge-1.20.6-*.jar` |
 | NeoForge | 1.21.1–1.21.x | NeoForge 1.21.1 | `serverspulse-neoforge-1.21.1-*.jar` |
+| NeoForge | 26.1–26.1.x | NeoForge 26.1.2 | `serverspulse-neoforge-26.1.2-*.jar` |
+
+The Bukkit and Fabric artifacts are single version-agnostic jars: they are
+compiled against their oldest supported release and resolve everything newer
+through reflection, so one download covers the whole range. Forge and NeoForge
+ship one jar per band because their APIs change incompatibly between versions.
 
 Java requirements follow Minecraft and platform requirements: Java 8 for older
-Bukkit and Forge 1.16.5 servers, Java 17 for the middle releases, and Java 21
-for current 1.20.6/1.21 releases. Use the Java version required by your server.
-Forge 1.12.2 source exists for development but is not part of the supported
-release build.
+Bukkit and Forge 1.16.5 servers, Java 17 for the middle releases, Java 21 for
+1.20.6/1.21 releases, and Java 25 for Minecraft 26.x. Use the Java version
+required by your server. Forge 1.12.2 source exists for development but is not
+part of the supported release build.
 
 ## Commands and permissions
 
@@ -143,11 +153,19 @@ Only use a backend you trust.
 
 ## Build and test
 
-The complete build requires JDK 21:
+The build spans four toolchains and needs all of them installed: JDK 8 (Forge
+1.16.5), 17 (Bukkit, Fabric, Forge 1.20.1), 21 (Forge 1.21.x, NeoForge
+1.20.6/1.21.1) and 25 (the Minecraft 26.x bands). Gradle itself runs on JDK 21.
 
 ```bash
 ./gradlew build --no-daemon
 ```
+
+The first build also generates the official-mapped Forge 1.16.5 jars by running
+the bundled ForgeGradle 5 setup build automatically; that step needs network
+access, adds a few minutes once per machine, and is skipped from then on. See
+[platform-forge/COMPATIBILITY.md](platform-forge/COMPATIBILITY.md) for why that
+band needs separate tooling.
 
 Consolidated release artifacts are written to `build/artifacts/`. The real-server
 test lab requires Node.js 22 and, for its default release profile, Docker:

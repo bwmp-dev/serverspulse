@@ -14,11 +14,18 @@ documentation fixes, and focused code changes are welcome.
 
 ## Development setup
 
-The complete build requires JDK 21:
+The complete build spans four toolchains and needs all of them installed:
+JDK 8 (Forge 1.16.5), 17 (Bukkit, Fabric, Forge 1.20.1), 21 (Forge 1.21.x,
+NeoForge 1.20.6/1.21.1) and 25 (the Minecraft 26.x bands). Gradle runs on 21.
 
 ```bash
 ./gradlew build --no-daemon
 ```
+
+The first build additionally runs the bundled ForgeGradle 5 setup build to
+generate the mapped Forge 1.16.5 jars. It needs network access, takes a few
+minutes, and is skipped on every later build; see
+[platform-forge/COMPATIBILITY.md](platform-forge/COMPATIBILITY.md).
 
 Artifacts are collected in `build/artifacts/`. The real-server test lab also
 requires Node.js 22 and, for its default release profile, Docker:

@@ -5,11 +5,11 @@ relocation prevents namespace conflicts but does not change their licenses.
 
 | Component | Version used | License | Project |
 | --- | --- | --- | --- |
-| Kotlin standard library | 2.1.10 | Apache License 2.0 | https://github.com/JetBrains/kotlin |
-| OkHttp | 4.12.0 | Apache License 2.0 | https://github.com/square/okhttp |
-| Okio (transitive dependency of OkHttp) | 3.6.0 | Apache License 2.0 | https://github.com/square/okio |
-| Gson | 2.10.1 | Apache License 2.0 | https://github.com/google/gson |
-| SnakeYAML | 2.2 | Apache License 2.0 | https://bitbucket.org/snakeyaml/snakeyaml |
+| Kotlin standard library | 2.4.10 | Apache License 2.0 | https://github.com/JetBrains/kotlin |
+| OkHttp | 5.4.0 | Apache License 2.0 | https://github.com/square/okhttp |
+| Okio (transitive dependency of OkHttp) | 3.17.0 | Apache License 2.0 | https://github.com/square/okio |
+| Gson | 2.14.0 | Apache License 2.0 | https://github.com/google/gson |
+| SnakeYAML | 2.6 | Apache License 2.0 | https://bitbucket.org/snakeyaml/snakeyaml |
 | JetBrains annotations (transitive Kotlin dependency) | As resolved by Gradle | Apache License 2.0 | https://github.com/JetBrains/java-annotations |
 
 Some artifacts may also contain Kotlin runtime support modules selected

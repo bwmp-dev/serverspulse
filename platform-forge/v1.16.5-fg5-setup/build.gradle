@@ -1,0 +1,76 @@
+// ============================================================
+// ForgeGradle 5 bootstrap for Minecraft 1.16.5
+//
+// Purpose: generate the official-mapped Forge 1.16.5 jars and the
+//          SRG->official mappings that the sibling platform-forge/v1.16.5
+//          module compiles and reobfuscates against. ForgeGradle writes
+//          them into the shared Gradle cache at
+//          <gradle user home>/caches/forge_gradle/minecraft_user_repo/.
+//
+// Why a separate build: ForgeGradle 5 is the only toolchain that maps
+//          pre-1.17 Minecraft. It requires Gradle 7.x, so it cannot be
+//          applied inside the main Gradle 9 build. NeoForged's runtime is
+//          not an option either -- it refuses MCP versions older than 1.17
+//          ("NFRT currently does not support MCP versions that did not make
+//          use of official Mojang mappings").
+//
+// Requirements:
+//   - The bundled gradlew (pins Gradle 7.6.4)
+//   - Java 17 as the host JVM
+//
+// The main build runs this automatically via the `bootstrapMappedForgeJars`
+// task in ../v1.16.5/build.gradle.kts, and skips it once the outputs exist.
+// To run it by hand:
+//   ./gradlew generateMappedForgeJars
+// ============================================================
+
+buildscript {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net/' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
+    }
+}
+
+apply plugin: 'net.minecraftforge.gradle'
+apply plugin: 'java'
+
+repositories {
+    mavenCentral()
+}
+
+// Keep the version catalog authoritative rather than repeating the Forge
+// version here. The main build passes -PforgeVersion when it invokes this
+// project; a standalone run reads the same catalog entry directly.
+ext.forgeVersion = findProperty('forgeVersion') ?: {
+    def catalog = file('../../gradle/libs.versions.toml')
+    def match = catalog.text =~ /(?m)^forge-mc1165\s*=\s*"([^"]+)"/
+    if (!match) {
+        throw new GradleException("Could not read forge-mc1165 from ${catalog}; pass -PforgeVersion=<version> instead.")
+    }
+    return match[0][1]
+}()
+
+// Must match the mappings channel/version that platform-forge/v1.16.5 expects
+// in its cache paths (`..._mapped_official_1.16.5`).
+minecraft {
+    mappings channel: 'official', version: '1.16.5'
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${forgeVersion}"
+}
+
+// Resolving the compile classpath is what drives ForgeGradle's mapping
+// pipeline; the jars are a side effect written into the shared cache rather
+// than an output of this project.
+tasks.register('generateMappedForgeJars') {
+    group = 'setup'
+    description = 'Generates the official-mapped Forge 1.16.5 jars into the shared Gradle cache'
+    doLast {
+        configurations.compileClasspath.resolve()
+        logger.lifecycle("Mapped Forge ${forgeVersion} artifacts are available in ${gradle.gradleUserHomeDir}/caches/forge_gradle/")
+    }
+}

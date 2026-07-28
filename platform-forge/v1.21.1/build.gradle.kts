@@ -1,6 +1,6 @@
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "2.1.10"
-    id("com.gradleup.shadow") version "9.3.1"
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.shadow)
 }
 
 java {
@@ -12,10 +12,14 @@ kotlin {
     jvmToolchain(21)
 }
 
+// Forge does not publish a usable Minecraft API artifact for this band, so the
+// 1.20.1 module's merged jar supplies the `net.minecraft` / `com.mojang`
+// classes at compile time. The names this module touches are stable across the
+// two versions; anything version-sensitive goes through reflection instead.
 val forge120MergedJar = project(":platform-forge:v1.20.1")
     .layout
     .buildDirectory
-    .file("moddev/artifacts/forge-1.20.1-47.3.0-merged.jar")
+    .file("moddev/artifacts/forge-${libs.versions.forge.mc1201.get()}-merged.jar")
 
 val minecraftCompileStubJar by tasks.registering(Jar::class) {
     archiveBaseName.set("minecraft-1.20.1-api")
@@ -30,7 +34,7 @@ val minecraftCompileStubJar by tasks.registering(Jar::class) {
     }
 }
 
-val shade: Configuration by configurations.creating {
+val shade: Configuration = configurations.create("shade") {
     isTransitive = true
 }
 
@@ -38,17 +42,17 @@ dependencies {
     implementation(project(":agent-core"))
 
     compileOnly(files(minecraftCompileStubJar.flatMap { it.archiveFile }))
-    compileOnly("net.minecraftforge:forge:1.21.1-52.1.2:universal@jar")
-    compileOnly("net.minecraftforge:eventbus:6.2.27")
-    compileOnly("net.minecraftforge:fmlloader:1.21.1-52.1.2")
-    compileOnly("net.minecraftforge:fmlcore:1.21.1-52.1.2")
-    compileOnly("net.minecraftforge:forgespi:7.1.5")
-    compileOnly("net.minecraftforge:javafmllanguage:1.21.1-52.1.2")
-    compileOnly("com.mojang:brigadier:1.3.10")
-    compileOnly("org.apache.logging.log4j:log4j-api:2.25.2")
+    compileOnly(variantOf(libs.forge.universal.mc1211) { classifier("universal") })
+    compileOnly(libs.forge.eventbus.mc1211)
+    compileOnly(libs.forge.fmlloader.mc1211)
+    compileOnly(libs.forge.fmlcore.mc1211)
+    compileOnly(libs.forge.spi.mc1211)
+    compileOnly(libs.forge.javafml.mc1211)
+    compileOnly(libs.brigadier)
+    compileOnly(libs.log4j.api)
 
     shade(project(":agent-core"))
-    shade("org.jetbrains.kotlin:kotlin-stdlib:2.1.10")
+    shade(libs.kotlin.stdlib)
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
@@ -70,6 +74,10 @@ tasks.shadowJar {
     relocate("okhttp3", "com.serverspulse.libs.okhttp3")
     relocate("okio", "com.serverspulse.libs.okio")
     relocate("org.yaml.snakeyaml", "com.serverspulse.libs.snakeyaml")
+
+    exclude("com/google/errorprone/**")
+    exclude("org/intellij/lang/annotations/**")
+    exclude("org/jetbrains/annotations/**")
 }
 
 tasks.build {

@@ -14,7 +14,10 @@ kotlin {
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
-        freeCompilerArgs.addAll("-Xjvm-default=all")
+        // Replaces the deprecated `-Xjvm-default=all`, which Kotlin 2.4 warns
+        // on. NO_COMPATIBILITY is the direct successor: interface members get
+        // real JVM default methods and no DefaultImpls bridges are emitted.
+        jvmDefault.set(org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode.NO_COMPATIBILITY)
     }
 }
 

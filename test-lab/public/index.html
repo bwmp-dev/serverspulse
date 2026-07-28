@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ServersPulse Test Lab</title>
+    <style>
+      :root {
+        --bg: #f2f4f7;
+        --panel: #ffffff;
+        --text: #14223a;
+        --muted: #5f6e86;
+        --border: #d9deea;
+        --accent: #0b7285;
+        --ok: #1c7c54;
+        --warn: #bc6c25;
+        --bad: #b42318;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+        color: var(--text);
+        background: radial-gradient(circle at 10% 10%, #e0ecff 0%, var(--bg) 48%);
+      }
+
+      .shell {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      .titlebar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 1.5rem;
+      }
+
+      .status-pill {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        color: var(--muted);
+        background: #fff;
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: 1.2fr 1fr;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+      }
+
+      .panel h2 {
+        margin: 0 0 10px;
+        font-size: 1.05rem;
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+      }
+
+      select,
+      button,
+      input[type="text"] {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 10px;
+        font: inherit;
+      }
+
+      button {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: #fff;
+        color: var(--text);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .platforms label,
+      .tests label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-right: 10px;
+        color: var(--muted);
+      }
+
+      .tests {
+        max-height: 280px;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px;
+      }
+
+      .test-row {
+        display: grid;
+        grid-template-columns: 32px 1fr auto auto;
+        gap: 8px;
+        align-items: center;
+        padding: 6px 4px;
+        border-bottom: 1px solid #edf1f7;
+      }
+
+      .test-row:last-child {
+        border-bottom: 0;
+      }
+
+      .muted {
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      .runs {
+        max-height: 220px;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+
+      .run-item {
+        padding: 8px 10px;
+        border-bottom: 1px solid #edf1f7;
+        cursor: pointer;
+      }
+
+      .run-item:last-child {
+        border-bottom: 0;
+      }
+
+      .run-item.active {
+        background: #e8f8fb;
+      }
+
+      .badge {
+        padding: 2px 7px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        border: 1px solid var(--border);
+      }
+
+      .badge.running {
+        color: var(--warn);
+        border-color: #f3d3b1;
+        background: #fff6eb;
+      }
+
+      .badge.passed {
+        color: var(--ok);
+        border-color: #c3ead8;
+        background: #ecfaf3;
+      }
+
+      .badge.failed {
+        color: var(--bad);
+        border-color: #f7c7c3;
+        background: #fff1f0;
+      }
+
+      .log {
+        margin-top: 8px;
+        background: #111827;
+        color: #cbd5e1;
+        border-radius: 8px;
+        padding: 8px;
+        height: 260px;
+        overflow: auto;
+        font-family: Consolas, monospace;
+        font-size: 0.78rem;
+        white-space: pre-wrap;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        text-align: left;
+        border-bottom: 1px solid #edf1f7;
+        padding: 6px;
+        font-size: 0.88rem;
+      }
+
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="titlebar">
+        <h1>ServersPulse Test Lab</h1>
+        <div id="connection" class="status-pill">Connecting...</div>
+      </div>
+
+      <div class="grid">
+        <section class="panel">
+          <h2>New Run</h2>
+          <div class="row">
+            <label for="profile">Profile</label>
+            <select id="profile"></select>
+            <label><input id="skipBuild" type="checkbox" /> Skip build</label>
+            <button id="applyProfile" class="secondary">Use profile defaults</button>
+          </div>
+
+          <div class="row">
+            <label for="executionMode">Execution</label>
+            <select id="executionMode">
+              <option value="docker">Docker</option>
+              <option value="local">Local</option>
+            </select>
+            <label for="maxParallel">Max parallel</label>
+            <input id="maxParallel" type="number" min="1" value="4" style="width: 72px" />
+            <label><input id="usePersistentCache" type="checkbox" checked /> Persist server data</label>
+            <label><input id="rebuildDockerImages" type="checkbox" /> Rebuild Docker images</label>
+          </div>
+
+          <div class="row platforms" id="platforms"></div>
+
+          <div class="row">
+            <button id="selectAll" class="secondary">Select all visible</button>
+            <button id="clearAll" class="secondary">Clear visible</button>
+            <span id="selectionCount" class="muted"></span>
+          </div>
+
+          <div id="tests" class="tests"></div>
+
+          <div class="row" style="margin-top: 12px">
+            <button id="startRun">Start run</button>
+            <span id="startMessage" class="muted"></span>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Runs</h2>
+          <div id="runs" class="runs"></div>
+
+          <h2 style="margin-top: 12px">Selected Run</h2>
+          <div id="runMeta" class="muted">Pick a run to view details.</div>
+          <table id="testTable" style="margin-top: 8px"></table>
+          <div id="log" class="log"></div>
+        </section>
+      </div>
+    </div>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

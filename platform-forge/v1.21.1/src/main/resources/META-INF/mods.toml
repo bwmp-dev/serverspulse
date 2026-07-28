@@ -1,0 +1,26 @@
+modLoader = "javafml"
+loaderVersion = "[52,61)"
+
+license = "Apache-2.0"
+
+[[mods]]
+modId = "serverspulse"
+version = "${version}"
+displayName = "ServersPulse"
+description = "Server monitoring agent for ServersPulse"
+authors = "bwmp"
+displayURL = "https://serverspulse.com"
+
+[[dependencies.serverspulse]]
+modId = "forge"
+mandatory = true
+versionRange = "[52,61)"
+ordering = "NONE"
+side = "SERVER"
+
+[[dependencies.serverspulse]]
+modId = "minecraft"
+mandatory = true
+versionRange = "[1.21.1,1.21.11)"
+ordering = "NONE"
+side = "SERVER"

@@ -1,0 +1,161 @@
+{
+  "timeouts": {
+    "bootSeconds": 900,
+    "commandSeconds": 120
+  },
+  "build": {
+    "tasks": [
+      ":platform-bukkit:shadowJar",
+      ":platform-fabric:remapJar",
+      ":platform-forge:v1.16.5:reobfShadowJar",
+      ":platform-forge:v1.20.1:reobfShadowJar",
+      ":platform-forge:v1.21.1:shadowJar",
+      ":platform-forge:v1.21.11:shadowJar",
+      ":platform-neoforge:v1.20.6:shadowJar",
+      ":platform-neoforge:shadowJar"
+    ]
+  },
+  "profiles": {
+    "quick": [
+      "paper-high",
+      "fabric-high",
+      "forge-1-20-1",
+      "forge-1-21-11",
+      "neoforge-1-21-1"
+    ],
+    "release": [
+      "paper-low",
+      "paper-high",
+      "fabric-low",
+      "fabric-high",
+      "forge-1-16-5",
+      "forge-1-18-2",
+      "forge-1-19-2",
+      "forge-1-20-1",
+      "forge-1-21-1",
+      "forge-1-21-11",
+      "neoforge-1-20-6",
+      "neoforge-1-21-1"
+    ],
+    "full": [
+      "paper-low",
+      "paper-high",
+      "fabric-low",
+      "fabric-high",
+      "forge-1-16-5",
+      "forge-1-18-2",
+      "forge-1-19-2",
+      "forge-1-20-1",
+      "forge-1-21-1",
+      "forge-1-21-11",
+      "neoforge-1-20-6",
+      "neoforge-1-21-1"
+    ]
+  },
+  "tests": [
+    {
+      "id": "paper-low",
+      "label": "Paper 1.8.8",
+      "platform": "paper",
+      "minecraftVersion": "1.8.8",
+      "javaMajor": 8,
+      "artifactPattern": "build/artifacts/serverspulse-bukkit-*.jar"
+    },
+    {
+      "id": "paper-high",
+      "label": "Paper 1.21.11",
+      "platform": "paper",
+      "minecraftVersion": "1.21.11",
+      "javaMajor": 21,
+      "artifactPattern": "build/artifacts/serverspulse-bukkit-*.jar"
+    },
+    {
+      "id": "fabric-low",
+      "label": "Fabric 1.14.4",
+      "platform": "fabric",
+      "minecraftVersion": "1.14.4",
+      "javaMajor": 17,
+      "artifactPattern": "build/artifacts/serverspulse-fabric-*.jar"
+    },
+    {
+      "id": "fabric-high",
+      "label": "Fabric 1.21.11",
+      "platform": "fabric",
+      "minecraftVersion": "1.21.11",
+      "javaMajor": 21,
+      "artifactPattern": "build/artifacts/serverspulse-fabric-*.jar"
+    },
+    {
+      "id": "forge-1-16-5",
+      "label": "Forge 1.16.5",
+      "platform": "forge",
+      "minecraftVersion": "1.16.5",
+      "forgeVersion": "36.2.42",
+      "javaMajor": 8,
+      "artifactPattern": "platform-forge/v1.16.5/build/libs/serverspulse-forge-1.16.5-*.jar"
+    },
+    {
+      "id": "forge-1-18-2",
+      "label": "Forge 1.18.2",
+      "platform": "forge",
+      "minecraftVersion": "1.18.2",
+      "forgeVersion": "40.3.0",
+      "javaMajor": 17,
+      "artifactPattern": "platform-forge/v1.20.1/build/libs/serverspulse-forge-1.20.1-*.jar"
+    },
+    {
+      "id": "forge-1-19-2",
+      "label": "Forge 1.19.2",
+      "platform": "forge",
+      "minecraftVersion": "1.19.2",
+      "forgeVersion": "43.5.0",
+      "javaMajor": 17,
+      "artifactPattern": "platform-forge/v1.20.1/build/libs/serverspulse-forge-1.20.1-*.jar"
+    },
+    {
+      "id": "forge-1-20-1",
+      "label": "Forge 1.20.1",
+      "platform": "forge",
+      "minecraftVersion": "1.20.1",
+      "forgeVersion": "47.3.0",
+      "javaMajor": 17,
+      "artifactPattern": "platform-forge/v1.20.1/build/libs/serverspulse-forge-1.20.1-*.jar"
+    },
+    {
+      "id": "forge-1-21-1",
+      "label": "Forge 1.21.1",
+      "platform": "forge",
+      "minecraftVersion": "1.21.1",
+      "forgeVersion": "52.1.2",
+      "javaMajor": 21,
+      "artifactPattern": "platform-forge/v1.21.1/build/libs/serverspulse-forge-1.21.1-*.jar"
+    },
+    {
+      "id": "forge-1-21-11",
+      "label": "Forge 1.21.11",
+      "platform": "forge",
+      "minecraftVersion": "1.21.11",
+      "forgeVersion": "61.1.1",
+      "javaMajor": 21,
+      "artifactPattern": "platform-forge/v1.21.11/build/libs/serverspulse-forge-1.21.11-*.jar"
+    },
+    {
+      "id": "neoforge-1-20-6",
+      "label": "NeoForge 1.20.6",
+      "platform": "neoforge",
+      "minecraftVersion": "1.20.6",
+      "neoforgeVersion": "20.6.139",
+      "javaMajor": 21,
+      "artifactPattern": "platform-neoforge/v1.20.6/build/libs/serverspulse-neoforge-1.20.6-*.jar"
+    },
+    {
+      "id": "neoforge-1-21-1",
+      "label": "NeoForge 1.21.1",
+      "platform": "neoforge",
+      "minecraftVersion": "1.21.1",
+      "neoforgeVersion": "21.1.219",
+      "javaMajor": 21,
+      "artifactPattern": "platform-neoforge/build/libs/serverspulse-neoforge-1.21.1-*.jar"
+    }
+  ]
+}

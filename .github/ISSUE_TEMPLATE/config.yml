@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/bwmp-dev/serverspulse/security/advisories/new
+    about: Report vulnerabilities privately.
+  - name: Documentation wiki
+    url: https://github.com/bwmp-dev/serverspulse/wiki
+    about: Read extended setup and troubleshooting documentation.

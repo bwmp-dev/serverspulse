@@ -1,0 +1,54 @@
+name: Bug report
+description: Report a reproducible agent problem
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include API keys, registration codes, player data, server addresses, or Spark URLs. Report vulnerabilities privately as described in SECURITY.md."
+  - type: input
+    id: agent-version
+    attributes:
+      label: Agent version
+      placeholder: "For example: 0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Bukkit / Spigot / Paper / Purpur / Folia
+        - Fabric
+        - Forge
+        - NeoForge
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: minecraft-version
+    attributes:
+      label: Minecraft version
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Include expected behavior and minimal reproduction steps.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I tested the latest release.
+          required: true
+        - label: I removed credentials and private server/player information.
+          required: true

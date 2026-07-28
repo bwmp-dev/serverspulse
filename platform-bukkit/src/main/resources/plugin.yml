@@ -1,0 +1,25 @@
+# `name` is the stable technical identifier, matching the modId used by the
+# Fabric/Forge/NeoForge builds. Bukkit derives the data folder from it, so this
+# puts the config at plugins/serverspulse/config.yml, in line with the
+# config/serverspulse/ path the mod platforms already use.
+# Installs from before this rename used plugins/ServerPulse/; ServersPulsePlugin
+# migrates that folder on first start. The display brand is "ServersPulse".
+name: serverspulse
+version: '${version}'
+main: com.serverspulse.agent.bukkit.ServersPulsePlugin
+description: '${description}'
+author: bwmp
+website: https://serverspulse.com
+folia-supported: true
+
+commands:
+  serverspulse:
+    description: ServersPulse agent management
+    usage: /serverspulse [register <code>|status|reload]
+    permission: serverspulse.admin
+    aliases: [sp, pulse]
+
+permissions:
+  serverspulse.admin:
+    description: Allows access to ServersPulse admin commands
+    default: op

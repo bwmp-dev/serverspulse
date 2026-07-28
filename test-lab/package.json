@@ -1,0 +1,18 @@
+{
+  "name": "serverspulse-test-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "matrix": "node scripts/run-test-matrix.js",
+    "quick": "node scripts/run-local-smoke-tests.js",
+    "release-gate": "node scripts/run-release-gate.js",
+    "prepare-release": "node scripts/prepare-plugin-release.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}

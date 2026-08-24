@@ -13,13 +13,13 @@ kotlin {
 }
 
 // Forge does not publish a usable Minecraft API artifact for this band, so the
-// 1.20.1 module's merged jar supplies the `net.minecraft` / `com.mojang`
+// 1.20.1 module's patched jar supplies the `net.minecraft` / `com.mojang`
 // classes at compile time. The names this module touches are stable across the
 // two versions; anything version-sensitive goes through reflection instead.
-val forge120MergedJar = project(":platform-forge:v1.20.1")
+val forge120PatchedJar = project(":platform-forge:v1.20.1")
     .layout
     .buildDirectory
-    .file("moddev/artifacts/forge-${libs.versions.forge.mc1201.get()}-merged.jar")
+    .file("moddev/artifacts/forge-${libs.versions.forge.mc1201.get()}.jar")
 
 val minecraftCompileStubClasses = layout.buildDirectory.dir("minecraft/stub-classes")
 
@@ -29,7 +29,7 @@ val extractMinecraftCompileStub by tasks.registering {
 
     doLast {
         sync {
-            from(zipTree(forge120MergedJar.get().asFile)) {
+            from(zipTree(forge120PatchedJar.get().asFile)) {
                 include("net/minecraft/**")
                 include("com/mojang/**")
             }
@@ -39,7 +39,7 @@ val extractMinecraftCompileStub by tasks.registering {
 }
 
 project(":platform-forge:v1.20.1").tasks.named("createMinecraftArtifacts") {
-    outputs.file(forge120MergedJar)
+    outputs.file(forge120PatchedJar)
     finalizedBy(extractMinecraftCompileStub)
 }
 

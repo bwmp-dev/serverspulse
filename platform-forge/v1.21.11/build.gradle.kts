@@ -18,12 +18,12 @@ sourceSets {
     }
 }
 
-// See the note in the 1.21.1 module: the 1.20.1 merged jar supplies the
+// See the note in the 1.21.1 module: the 1.20.1 patched jar supplies the
 // Minecraft compile classpath for this band as well.
-val forge120MergedJar = project(":platform-forge:v1.20.1")
+val forge120PatchedJar = project(":platform-forge:v1.20.1")
     .layout
     .buildDirectory
-    .file("moddev/artifacts/forge-${libs.versions.forge.mc1201.get()}-merged.jar")
+    .file("moddev/artifacts/forge-${libs.versions.forge.mc1201.get()}.jar")
 
 val minecraftCompileStubClasses = layout.buildDirectory.dir("minecraft/stub-classes")
 
@@ -34,7 +34,7 @@ val extractMinecraftCompileStub by tasks.registering {
 
     doLast {
         sync {
-            from(zipTree(forge120MergedJar.get().asFile)) {
+            from(zipTree(forge120PatchedJar.get().asFile)) {
                 include("net/minecraft/**")
                 include("com/mojang/**")
             }
@@ -44,7 +44,7 @@ val extractMinecraftCompileStub by tasks.registering {
 }
 
 project(":platform-forge:v1.20.1").tasks.named("createMinecraftArtifacts") {
-    outputs.file(forge120MergedJar)
+    outputs.file(forge120PatchedJar)
     finalizedBy(extractMinecraftCompileStub)
 }
 

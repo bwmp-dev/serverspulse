@@ -2,6 +2,7 @@ package com.serverspulse.agent.bukkit
 
 import com.serverspulse.agent.api.*
 import com.serverspulse.agent.bukkit.version.VersionResolver
+import com.serverspulse.agent.extensions.BukkitExtensionSource
 import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
@@ -28,6 +29,11 @@ class BukkitPlatformAdapter(
 
     private val serverIntrospection = BukkitServerIntrospection(resolvedCapabilities, tickCounter)
 
+    /** Shared with the plugin's listeners so AFK state has one owner. */
+    val activityTracker = PlayerActivityTracker()
+
+    private val extensionSource = BukkitExtensionSource()
+
     override val platformId: String
         get() = serverInfo.platformId
 
@@ -44,6 +50,14 @@ class BukkitPlatformAdapter(
     override fun worlds(): List<WorldIntrospection> {
         return Bukkit.getWorlds().map { BukkitWorldIntrospection(it) }
     }
+
+    override fun players(): List<PlayerIntrospection> {
+        return Bukkit.getOnlinePlayers().map {
+            BukkitPlayerIntrospection(it, resolvedCapabilities, activityTracker)
+        }
+    }
+
+    override fun extensions(): ExtensionSource = extensionSource
 
     override fun logger(): LoggerAdapter = loggerAdapter
 

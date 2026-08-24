@@ -17,6 +17,10 @@ class SnapshotAssembler(private val platform: PlatformAdapter) {
         private val RFC3339 = DateTimeFormatter.ISO_INSTANT
     }
 
+    // The data folder lives on the same filesystem as the server itself, and is
+    // the one path the core runtime is guaranteed to know.
+    private val diskRoot = platform.dataFolder()
+
     /**
      * Collect all metrics and build a snapshot.
      * Must be called from the server's main thread (world access is not thread-safe).
@@ -46,7 +50,11 @@ class SnapshotAssembler(private val platform: PlatformAdapter) {
             maxPlayers = server.getMaxPlayers(),
             platform = platform.platformId,
             mcVersion = platform.mcVersion,
-            worlds = worldSnapshots
+            worlds = worldSnapshots,
+            cpuProcessPct = SystemMetrics.cpuProcessPercent(),
+            cpuSystemPct = SystemMetrics.cpuSystemPercent(),
+            diskUsedMB = SystemMetrics.diskUsedMB(diskRoot),
+            diskTotalMB = SystemMetrics.diskTotalMB(diskRoot)
         )
     }
 }

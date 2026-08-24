@@ -13,6 +13,7 @@ rootProject.name = "serverspulse-plugin"
 
 include("agent-api")
 include("agent-core")
+include("agent-extensions")
 include("platform-bukkit")
 include("platform-fabric")
 include("platform-forge:v1.20.1")
@@ -24,3 +25,5 @@ include("platform-forge:v1.16.5")
 include("platform-neoforge")
 include("platform-neoforge:v1.20.6")
 include("platform-neoforge:v26.1.2")
+include("platform-velocity")
+include("platform-bungee")

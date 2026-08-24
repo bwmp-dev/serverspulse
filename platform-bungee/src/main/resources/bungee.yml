@@ -1,0 +1,7 @@
+# One artifact covers BungeeCord and Waterfall: they share this API, and the
+# agent tells them apart at runtime from the proxy name it reports.
+name: serverspulse
+version: '${version}'
+main: com.serverspulse.agent.bungee.BungeeServersPulse
+description: '${description}'
+author: bwmp

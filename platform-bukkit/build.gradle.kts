@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     implementation(project(":agent-core"))
+    implementation(project(":agent-extensions"))
     compileOnly(libs.spigot.api)
 }
 

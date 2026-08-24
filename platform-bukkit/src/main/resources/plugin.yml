@@ -14,6 +14,11 @@ folia-supported: true
 
 api-version: '1.13'
 
+# Rank, balance and mute mirroring reads these through reflection when they are
+# present. Loading after them means the first snapshot already sees them; none
+# of them is required and none is a build dependency.
+softdepend: [LuckPerms, Vault, Essentials, LiteBans]
+
 commands:
   serverspulse:
     description: ServersPulse agent management

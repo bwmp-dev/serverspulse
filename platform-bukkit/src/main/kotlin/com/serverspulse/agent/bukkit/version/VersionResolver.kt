@@ -1,5 +1,6 @@
 package com.serverspulse.agent.bukkit.version
 
+import com.serverspulse.agent.bukkit.BukkitPlayerIntrospection
 import org.bukkit.Bukkit
 
 /**
@@ -75,11 +76,22 @@ object VersionResolver {
         // Async chunk stats: Paper 1.13+ (and forks)
         val supportsAsyncChunkStats = isPaperBased && featureLevel >= 13
 
+        // Per-player capabilities are probed the same way: by asking the
+        // runtime what it actually exposes rather than mapping version numbers.
+        val onlinePlayer = try {
+            Bukkit.getOnlinePlayers().firstOrNull()
+        } catch (_: Throwable) {
+            null
+        }
+
         return BukkitVersionCapabilities(
             supportsMspt = supportsMspt,
             supportsNativeTickTimes = supportsNativeTickTimes,
             supportsAsyncChunkStats = supportsAsyncChunkStats,
-            supportsTpsApi = supportsTpsApi
+            supportsTpsApi = supportsTpsApi,
+            supportsPlayerPing = BukkitPlayerIntrospection.supportsPing(onlinePlayer),
+            supportsClientBrand = BukkitPlayerIntrospection.supportsClientBrand(),
+            supportsProtocolVersion = BukkitPlayerIntrospection.supportsProtocolVersion()
         )
     }
 

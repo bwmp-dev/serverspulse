@@ -10,5 +10,11 @@ data class BukkitVersionCapabilities(
     override val supportsMspt: Boolean,
     override val supportsNativeTickTimes: Boolean,
     override val supportsAsyncChunkStats: Boolean,
-    override val supportsTpsApi: Boolean
+    override val supportsTpsApi: Boolean,
+    override val supportsPlayerPing: Boolean = false,
+    override val supportsClientBrand: Boolean = false,
+    override val supportsProtocolVersion: Boolean = false,
+    override val supportsPlayerWorld: Boolean = true,
+    override val supportsActivityTracking: Boolean = true,
+    override val supportsPlayerAddress: Boolean = true
 ) : VersionCapabilities

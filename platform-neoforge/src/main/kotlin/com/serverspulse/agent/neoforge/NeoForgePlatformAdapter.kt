@@ -24,11 +24,22 @@ class NeoForgePlatformAdapter(
     override val mcVersion: String
         get() = resolvedMcVersion
 
+    private val activityTracker = NeoForgePlayerActivityTracker()
+
     override val capabilities: VersionCapabilities = object : VersionCapabilities {
         override val supportsMspt: Boolean = true
         override val supportsNativeTickTimes: Boolean = true
         override val supportsAsyncChunkStats: Boolean = false
         override val supportsTpsApi: Boolean = true
+        override val supportsPlayerPing: Boolean = true
+        override val supportsPlayerWorld: Boolean = true
+        // Position sampling stands in for a movement event, which is coarse but
+        // real; the brand channel and handshake protocol need a mixin into the
+        // connection handler and are honestly reported as unavailable.
+        override val supportsActivityTracking: Boolean = true
+        override val supportsClientBrand: Boolean = false
+        override val supportsProtocolVersion: Boolean = false
+        override val supportsPlayerAddress: Boolean = true
     }
 
     override fun scheduler(): SchedulerAdapter = schedulerAdapter
@@ -37,6 +48,14 @@ class NeoForgePlatformAdapter(
 
     override fun worlds(): List<WorldIntrospection> {
         return server.allLevels.map { NeoForgeWorldIntrospection(it) }
+    }
+
+    override fun players(): List<PlayerIntrospection> {
+        val introspections = server.playerList.players.map {
+            NeoForgePlayerIntrospection(it, activityTracker)
+        }
+        activityTracker.retain(introspections.mapTo(HashSet()) { it.uuid })
+        return introspections
     }
 
     override fun logger(): LoggerAdapter = loggerAdapter

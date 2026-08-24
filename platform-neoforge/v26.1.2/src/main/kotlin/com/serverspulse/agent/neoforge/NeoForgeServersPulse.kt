@@ -74,10 +74,14 @@ class NeoForgeServersPulse {
         val uuid = player.gameProfile.id?.toString() ?: return
         val name = player.gameProfile.name ?: return
         val rt = runtime ?: return
+        // Handed to the runtime purely so it can derive a country code locally.
+        // It is never sent, stored or logged; see AgentRuntime.onPlayerJoin.
+        val address = (player as? net.minecraft.server.level.ServerPlayer)
+            ?.let { NeoForgePlayerIntrospection.remoteAddress(it) }
         Thread {
             // Virtual hostname (server address the player typed) is not
             // readily accessible at this event stage in NeoForge, so null is passed.
-            rt.onPlayerJoin(uuid, name, null)
+            rt.onPlayerJoin(uuid, name, null, address = address)
         }.also { it.isDaemon = true }.start()
     }
 

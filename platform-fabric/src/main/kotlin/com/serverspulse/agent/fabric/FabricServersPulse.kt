@@ -252,9 +252,13 @@ class FabricServersPulse : DedicatedServerModInitializer {
         ) { args ->
             val handler = args.firstOrNull() ?: return@registerEventCallback
             val (uuid, name) = extractPlayerIdentity(handler) ?: return@registerEventCallback
+            // Handed to the runtime purely so it can derive a country code
+            // locally. It is never sent, stored or logged; see
+            // AgentRuntime.onPlayerJoin.
+            val address = extractRemoteAddress(handler)
             runtime?.let { rt ->
                 Thread {
-                    rt.onPlayerJoin(uuid, name, null)
+                    rt.onPlayerJoin(uuid, name, null, address = address)
                 }.also { it.isDaemon = true }.start()
             }
         }
@@ -300,6 +304,25 @@ class FabricServersPulse : DedicatedServerModInitializer {
         }
 
         return if (name.isNullOrBlank()) null else Pair(uuid, name)
+    }
+
+    /**
+     * Reads the address a player connected from off their `ClientConnection`.
+     *
+     * Both hops have been renamed across the Minecraft versions this one jar
+     * covers, so each is tried under every name it has had; failing to resolve
+     * one simply means no country is derived.
+     */
+    private fun extractRemoteAddress(handler: Any): java.net.InetAddress? {
+        val connection = FabricCompat.readField(handler, "connection")
+            ?: FabricCompat.invokeNoArg(handler, "getConnection")
+            ?: return null
+
+        val socket = FabricCompat.invokeNoArg(connection, "getAddress", "getRemoteAddress")
+            ?: FabricCompat.readField(connection, "address")
+            ?: return null
+
+        return (socket as? java.net.InetSocketAddress)?.address
     }
 
     private fun retryCommandRegistration(server: MinecraftServer) {

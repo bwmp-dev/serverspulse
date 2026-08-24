@@ -5,7 +5,8 @@ import com.serverspulse.agent.api.CommandSender
 import com.serverspulse.agent.core.AgentRuntime
 
 /**
- * Shared command handler for `/serverspulse` (and aliases `/sp`, `/pulse`).
+ * Shared command handler for the agent command, whose label varies by platform
+ * (proxies cannot use `serverspulse` without shadowing the backends behind them).
  *
  * Lives in agent-core so every platform reuses the same logic.
  * Platforms only need to wire their native command system to call
@@ -13,7 +14,10 @@ import com.serverspulse.agent.core.AgentRuntime
  *
  * All subcommands require OP. Console is always allowed.
  */
-class ServersPulseCommandHandler(private val runtime: AgentRuntime) : CommandHandler {
+class ServersPulseCommandHandler(
+    private val runtime: AgentRuntime,
+    private val label: String,
+) : CommandHandler {
 
     override fun execute(sender: CommandSender, args: Array<String>): Boolean {
         if (!sender.isConsole && !sender.isOp) {
@@ -56,7 +60,7 @@ class ServersPulseCommandHandler(private val runtime: AgentRuntime) : CommandHan
 
     private fun handleRegister(sender: CommandSender, args: Array<String>) {
         if (args.size < 2) {
-            sender.sendMessage("[ServersPulse] Usage: /serverspulse register <code>")
+            sender.sendMessage("[ServersPulse] Usage: /$label register <code>")
             sender.sendMessage("[ServersPulse] Get a registration code from the ServersPulse dashboard.")
             return
         }
@@ -65,8 +69,8 @@ class ServersPulseCommandHandler(private val runtime: AgentRuntime) : CommandHan
 
     private fun sendHelp(sender: CommandSender) {
         sender.sendMessage("[ServersPulse] Commands:")
-        sender.sendMessage("  /serverspulse register <code> - Register with a one-time code")
-        sender.sendMessage("  /serverspulse reload - Reload configuration")
-        sender.sendMessage("  /serverspulse status - Show agent status")
+        sender.sendMessage("  /$label register <code> - Register with a one-time code")
+        sender.sendMessage("  /$label reload - Reload configuration")
+        sender.sendMessage("  /$label status - Show agent status")
     }
 }

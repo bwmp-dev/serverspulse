@@ -3,6 +3,7 @@ package com.serverspulse.agent.neoforge
 import com.serverspulse.agent.api.CommandRegistry
 import com.serverspulse.agent.api.LoggerAdapter
 import com.serverspulse.agent.api.PlatformAdapter
+import com.serverspulse.agent.api.PlayerIntrospection
 import com.serverspulse.agent.api.SchedulerAdapter
 import com.serverspulse.agent.api.ServerIntrospection
 import com.serverspulse.agent.api.VersionCapabilities
@@ -27,11 +28,24 @@ class NeoForgePlatformAdapter(
     override val mcVersion: String
         get() = resolvedMcVersion
 
+    private val activityTracker = NeoForgePlayerActivityTracker()
+
     override val capabilities: VersionCapabilities = object : VersionCapabilities {
         override val supportsMspt: Boolean = true
         override val supportsNativeTickTimes: Boolean = true
         override val supportsAsyncChunkStats: Boolean = false
         override val supportsTpsApi: Boolean = true
+        override val supportsPlayerPing: Boolean = true
+        override val supportsPlayerWorld: Boolean = true
+        // Position sampling stands in for a movement event, which is coarse but
+        // real; the brand channel and handshake protocol need a mixin into the
+        // connection handler and are honestly reported as unavailable.
+        override val supportsActivityTracking: Boolean = true
+        override val supportsClientBrand: Boolean = false
+        override val supportsProtocolVersion: Boolean = false
+        // This variant does not hook player join, so no address ever reaches
+        // the runtime and geolocation must not be announced for it.
+        override val supportsPlayerAddress: Boolean = false
     }
 
     override fun scheduler(): SchedulerAdapter = schedulerAdapter
@@ -40,6 +54,14 @@ class NeoForgePlatformAdapter(
 
     override fun worlds(): List<WorldIntrospection> {
         return server.allLevels.map { NeoForgeWorldIntrospection(it) }
+    }
+
+    override fun players(): List<PlayerIntrospection> {
+        val introspections = server.playerList.players.map {
+            NeoForgePlayerIntrospection(it, activityTracker)
+        }
+        activityTracker.retain(introspections.mapTo(HashSet()) { it.uuid })
+        return introspections
     }
 
     override fun logger(): LoggerAdapter = loggerAdapter

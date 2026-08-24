@@ -1,0 +1,9 @@
+{
+  "id": "serverspulse",
+  "name": "ServersPulse",
+  "version": "${version}",
+  "description": "${description}",
+  "url": "https://serverspulse.com",
+  "authors": ["bwmp"],
+  "main": "com.serverspulse.agent.velocity.VelocityServersPulse"
+}

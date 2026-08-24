@@ -47,9 +47,18 @@ class ServersPulsePlugin : JavaPlugin(), CommandExecutor {
 
         // Register player join/leave event listener
         server.pluginManager.registerEvents(
-            BukkitPlayerListener(runtime, schedulerAdapter),
+            BukkitPlayerListener(
+                runtime,
+                schedulerAdapter,
+                platformAdapter.capabilities,
+                platformAdapter.activityTracker
+            ),
             this
         )
+
+        // Movement and interaction feed AFK detection; the adapter owns the
+        // tracker so the session sampler and these events see the same state.
+        server.pluginManager.registerEvents(platformAdapter.activityTracker, this)
 
         runtime.start()
     }

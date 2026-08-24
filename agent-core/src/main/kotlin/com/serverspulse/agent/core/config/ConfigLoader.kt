@@ -31,6 +31,29 @@ object ConfigLoader {
         # This executes Spark console commands. Keep disabled unless you accept
         # that trust boundary and have installed the Spark plugin/mod.
         allow-backend-spark-profiling: false
+
+        # Collect per-player AFK time, latency and world time. Only what this
+        # server version can actually measure is reported; the dashboard shows
+        # the rest as "not reported" rather than as zero.
+        collect-player-metrics: true
+
+        # Idle time before a player counts as AFK, in seconds.
+        afk-threshold-seconds: 300
+
+        # How often accumulated session counters are sent, in seconds.
+        # Counters are cumulative, so a missed flush costs at most this much.
+        session-flush-seconds: 300
+
+        # Resolve each joining player's address to a country code, on this
+        # machine, using a database downloaded once a month. Only the two-letter
+        # country code is sent; the address itself never leaves this server and
+        # is never written to a log. Off by default.
+        geolocation-enabled: false
+
+        # How often mirrored plugin state (LuckPerms rank, Vault balance,
+        # punishments) is sent, in seconds. Nothing is sent when none of those
+        # plugins is installed.
+        extension-flush-seconds: 900
     """.trimIndent()
 
     /**
@@ -89,7 +112,15 @@ object ConfigLoader {
                     ?: AgentConfig.DEFAULT_INTERVAL_SECONDS,
                 debug = (data["debug"] as? Boolean) ?: false,
                 allowBackendSparkProfiling =
-                    (data["allow-backend-spark-profiling"] as? Boolean) ?: false
+                    (data["allow-backend-spark-profiling"] as? Boolean) ?: false,
+                collectPlayerMetrics = (data["collect-player-metrics"] as? Boolean) ?: true,
+                afkThresholdSeconds = (data["afk-threshold-seconds"] as? Number)?.toInt()
+                    ?: AgentConfig.DEFAULT_AFK_THRESHOLD_SECONDS,
+                sessionFlushSeconds = (data["session-flush-seconds"] as? Number)?.toInt()
+                    ?: AgentConfig.DEFAULT_SESSION_FLUSH_SECONDS,
+                geolocationEnabled = (data["geolocation-enabled"] as? Boolean) ?: false,
+                extensionFlushSeconds = (data["extension-flush-seconds"] as? Number)?.toInt()
+                    ?: AgentConfig.DEFAULT_EXTENSION_FLUSH_SECONDS
             )
         } catch (e: Exception) {
             logger.error("Failed to load config.yml, using defaults", e)

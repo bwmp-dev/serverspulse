@@ -5,8 +5,12 @@ package com.serverspulse.agent.api
  * Implemented per platform, called by the core snapshot assembler.
  */
 interface ServerIntrospection {
-    /** Current TPS value. Returns 20.0 if the platform cannot report it. */
-    fun getTps(): Double
+    /**
+     * Current TPS value, or null on a platform that has no tick loop to
+     * measure — a proxy being the only such case today. Null is reported as
+     * "not measured" rather than being rounded up to a healthy 20.
+     */
+    fun getTps(): Double?
 
     /** Milliseconds per tick, or null if unsupported on this platform/version. */
     fun getMspt(): Double?

@@ -5,6 +5,9 @@ import com.google.gson.GsonBuilder
 import com.serverspulse.agent.api.LoggerAdapter
 import com.serverspulse.agent.api.dto.IngestResponse
 import com.serverspulse.agent.api.dto.PlayerEventPayload
+import com.serverspulse.agent.api.dto.PlayerExtensionsPayload
+import com.serverspulse.agent.api.dto.PlayerSessionMetricsPayload
+import com.serverspulse.agent.api.dto.PlayerSwitchPayload
 import com.serverspulse.agent.api.dto.ServerSnapshot
 import com.serverspulse.agent.api.dto.SparkResultPayload
 import okhttp3.MediaType.Companion.toMediaType
@@ -30,6 +33,14 @@ class TransportClient(
         private const val AGENT_INFO_PATH = "/api/v1/ingest/agent-info"
         private const val SPARK_RESULT_PATH = "/api/v1/ingest/spark-result"
         private const val PLAYER_EVENT_PATH = "/api/v1/ingest/player-event"
+        private const val PLAYER_SESSIONS_PATH = "/api/v1/ingest/player-sessions"
+        private const val PLAYER_SWITCHES_PATH = "/api/v1/ingest/player-switches"
+        private const val PLAYER_EXTENSIONS_PATH = "/api/v1/ingest/player-extensions"
+
+        /** The backend rejects larger batches; splitting is cheaper than a 413. */
+        private const val PLAYER_SESSION_BATCH_SIZE = 200
+        private const val PLAYER_SWITCH_BATCH_SIZE = 200
+        private const val PLAYER_EXTENSION_BATCH_SIZE = 500
         private const val LATEST_RELEASE_PATH = "/api/v1/releases/latest?channel=stable"
         private const val REGISTER_PATH = "/api/v1/auth/claim"
 
@@ -136,9 +147,14 @@ class TransportClient(
      * Sends plugin/mod metadata to the backend.
      * Intended to be called once on startup/reload.
      */
-    fun sendAgentInfo(agentVersion: String): Boolean {
+    fun sendAgentInfo(agentVersion: String, capabilities: List<String> = emptyList()): Boolean {
         val url = backendUrl.trimEnd('/') + AGENT_INFO_PATH
-        val json = gson.toJson(mapOf("agentVersion" to agentVersion))
+        val json = gson.toJson(
+            mapOf(
+                "agentVersion" to agentVersion,
+                "capabilities" to capabilities
+            )
+        )
         val body = json.toRequestBody(JSON_MEDIA)
         val request = Request.Builder()
             .url(url)
@@ -159,6 +175,108 @@ class TransportClient(
             }
         } catch (e: IOException) {
             logger.debug("Agent info update failed: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Sends a batch of cumulative session counters.
+     *
+     * Called from an async thread. Failures are logged rather than retried: the
+     * counters are cumulative, so the next flush carries the same totals and a
+     * dropped batch costs nothing beyond one interval of freshness.
+     *
+     * @return true when every batch was accepted
+     */
+    fun sendPlayerSessions(entries: List<PlayerSessionMetricsPayload>): Boolean {
+        if (entries.isEmpty()) return true
+
+        val url = backendUrl.trimEnd('/') + PLAYER_SESSIONS_PATH
+        var allAccepted = true
+
+        for (chunk in entries.chunked(PLAYER_SESSION_BATCH_SIZE)) {
+            if (!postBatch(url, gson.toJson(chunk), "Player session flush")) {
+                allAccepted = false
+            }
+        }
+
+        return allAccepted
+    }
+
+    /**
+     * Sends a batch of backend-switch transitions from a proxy.
+     *
+     * Called from an async thread. A rejected batch is dropped rather than
+     * retried: the entries are already buffered behind a hard cap, and holding
+     * a failed batch to retry it would push newer transitions out of that cap.
+     *
+     * @return true when every batch was accepted
+     */
+    fun sendPlayerSwitches(entries: List<PlayerSwitchPayload>): Boolean {
+        if (entries.isEmpty()) return true
+
+        val url = backendUrl.trimEnd('/') + PLAYER_SWITCHES_PATH
+        var allAccepted = true
+
+        for (chunk in entries.chunked(PLAYER_SWITCH_BATCH_SIZE)) {
+            if (!postBatch(url, gson.toJson(chunk), "Player switch flush")) {
+                allAccepted = false
+            }
+        }
+
+        return allAccepted
+    }
+
+    /**
+     * Sends a snapshot of state mirrored from other plugins.
+     *
+     * Called from an async thread. The two lists are chunked independently
+     * because the backend caps each of them separately.
+     *
+     * @return true when every batch was accepted
+     */
+    fun sendPlayerExtensions(payload: PlayerExtensionsPayload): Boolean {
+        if (payload.state.isEmpty() && payload.punishments.isEmpty()) return true
+
+        val url = backendUrl.trimEnd('/') + PLAYER_EXTENSIONS_PATH
+        val stateChunks = payload.state.chunked(PLAYER_EXTENSION_BATCH_SIZE).ifEmpty { listOf(emptyList()) }
+        val punishmentChunks =
+            payload.punishments.chunked(PLAYER_EXTENSION_BATCH_SIZE).ifEmpty { listOf(emptyList()) }
+        var allAccepted = true
+
+        for (index in 0 until maxOf(stateChunks.size, punishmentChunks.size)) {
+            val body = PlayerExtensionsPayload(
+                state = stateChunks.getOrElse(index) { emptyList() },
+                punishments = punishmentChunks.getOrElse(index) { emptyList() }
+            )
+            if (!postBatch(url, gson.toJson(body), "Player extension snapshot")) {
+                allAccepted = false
+            }
+        }
+
+        return allAccepted
+    }
+
+    private fun postBatch(url: String, json: String, description: String): Boolean {
+        val request = Request.Builder()
+            .url(url)
+            .header("X-API-Key", apiKey)
+            .header("User-Agent", "ServersPulse-Agent/1.0")
+            .post(json.toRequestBody(JSON_MEDIA))
+            .build()
+
+        return try {
+            httpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    true
+                } else {
+                    val errorBody = response.body.string().ifBlank { "no body" }
+                    logger.debug("$description rejected (${response.code}): $errorBody")
+                    false
+                }
+            }
+        } catch (e: IOException) {
+            logger.debug("$description failed: ${e.message}")
             false
         }
     }
@@ -219,6 +337,9 @@ class TransportClient(
     private fun mapPlatformToReleaseKey(platformId: String): String {
         val raw = platformId.trim().lowercase()
         return when {
+            raw.contains("velocity") -> "velocity"
+            raw.contains("waterfall") -> "waterfall"
+            raw.contains("bungee") -> "bungeecord"
             raw.contains("neoforge") -> "neoforge"
             raw.contains("forge") -> "forge"
             raw.contains("fabric") -> "fabric"

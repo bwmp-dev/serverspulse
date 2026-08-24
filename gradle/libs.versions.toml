@@ -33,6 +33,15 @@ brigadier = "1.3.10"
 # reflection in platform-bukkit/version/. A floor, not a ceiling.
 spigot-api = "1.8.8-R0.1-SNAPSHOT"
 
+## Proxies #################################################################
+# The proxy APIs are the one place a real compile dependency is unavoidable: a
+# plugin entry point is a class the proxy loads by name, and no amount of
+# reflection substitutes for it. Both stay compileOnly.
+# Velocity 3 requires Java 17, which is why platform-velocity opts out of the
+# Java 8 target the Minecraft-server modules keep.
+velocity-api = "3.4.0"
+bungeecord-api = "1.21-R0.4"
+
 ## Fabric ###################################################################
 # The Fabric artifact is one version-agnostic jar. It compiles against the
 # oldest supported release and resolves everything newer reflectively via
@@ -87,6 +96,8 @@ kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "
 log4j-api = { module = "org.apache.logging.log4j:log4j-api", version.ref = "log4j" }
 brigadier = { module = "com.mojang:brigadier", version.ref = "brigadier" }
 spigot-api = { module = "org.spigotmc:spigot-api", version.ref = "spigot-api" }
+velocity-api = { module = "com.velocitypowered:velocity-api", version.ref = "velocity-api" }
+bungeecord-api = { module = "net.md-5:bungeecord-api", version.ref = "bungeecord-api" }
 
 ## Fabric ###################################################################
 fabric-minecraft = { module = "com.mojang:minecraft", version.ref = "fabric-minecraft" }

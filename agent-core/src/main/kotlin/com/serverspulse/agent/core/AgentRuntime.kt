@@ -2,6 +2,11 @@ package com.serverspulse.agent.core
 
 import com.serverspulse.agent.api.*
 import com.serverspulse.agent.api.dto.PlayerEventPayload
+import com.serverspulse.agent.api.dto.PlayerExtensionsPayload
+import com.serverspulse.agent.api.dto.PlayerSessionMetricsPayload
+import com.serverspulse.agent.api.dto.PlayerSwitchPayload
+import com.serverspulse.agent.core.collector.NetworkSwitchBuffer
+import com.serverspulse.agent.core.collector.SessionTracker
 import com.serverspulse.agent.core.collector.SnapshotAssembler
 import com.serverspulse.agent.core.command.CommandDispatcher
 import com.serverspulse.agent.core.command.ConsoleCommandRunner
@@ -9,7 +14,10 @@ import com.serverspulse.agent.core.command.ServersPulseCommandHandler
 import com.serverspulse.agent.core.command.SparkHandler
 import com.serverspulse.agent.core.config.AgentConfig
 import com.serverspulse.agent.core.config.ConfigLoader
+import com.serverspulse.agent.core.geo.GeolocationService
 import com.serverspulse.agent.core.transport.TransportClient
+import java.io.File
+import java.net.InetAddress
 import java.util.concurrent.atomic.AtomicLong
 import com.serverspulse.agent.core.transport.TransportClient.Companion.RedeemResult
 
@@ -43,14 +51,26 @@ class AgentRuntime(
     private val ingestSequence = AtomicLong(0)
     private val lastAppliedCommandSequence = AtomicLong(0)
 
+    // Session counters ride the existing collection tick rather than a second
+    // scheduler; only the flush to the backend is on its own cadence.
+    private var sessionTracker: SessionTracker? = null
+    private var lastSessionFlushAt: Long = 0L
+    private var lastExtensionFlushAt: Long = 0L
+
+    // Proxy modules produce transitions on their own event threads, so the
+    // buffer is the handoff point between those and the collection loop.
+    private val switchBuffer = NetworkSwitchBuffer()
+
+    private var geolocation: GeolocationService? = null
+
     @Volatile
     private var running = false
 
     /**
-     * Shared command handler for `/serverspulse`.
+     * Shared command handler for the agent command.
      * Platforms should route their native command events to this handler.
      */
-    val commandHandler: CommandHandler = ServersPulseCommandHandler(this)
+    val commandHandler: CommandHandler = ServersPulseCommandHandler(this, platform.commandLabel)
 
     /**
      * Initialize and start the agent.
@@ -86,6 +106,9 @@ class AgentRuntime(
         backendCommandDispatcher = CommandDispatcher(logger)
         registerBackendCommands()
 
+        startSessionTracking()
+        startGeolocation()
+
         // Start collection loop
         startCollectionLoop()
 
@@ -100,6 +123,11 @@ class AgentRuntime(
         running = false
         collectionTask?.cancel()
         collectionTask = null
+        flushSessionMetrics(sessionTracker?.drain().orEmpty())
+        sessionTracker?.clear()
+        sessionTracker = null
+        flushNetworkSwitches()
+        geolocation = null
 
         if (::backendCommandDispatcher.isInitialized) {
             backendCommandDispatcher.shutdown()
@@ -113,7 +141,7 @@ class AgentRuntime(
 
     /**
      * Reload configuration from disk and restart the collection loop.
-     * Called by the shared [ServersPulseCommandHandler] on `/serverspulse reload`.
+     * Called by the shared [ServersPulseCommandHandler] on the `reload` subcommand.
      *
      * @return result indicating success or validation errors
      */
@@ -127,6 +155,10 @@ class AgentRuntime(
         // Stop current collection
         collectionTask?.cancel()
         collectionTask = null
+        sessionTracker?.clear()
+        sessionTracker = null
+        flushNetworkSwitches()
+        geolocation = null
 
         // Rebuild transport with potentially new API key / backend URL
         if (::backendCommandDispatcher.isInitialized) {
@@ -149,6 +181,9 @@ class AgentRuntime(
         // Rebuild backend command dispatcher with new transport
         backendCommandDispatcher = CommandDispatcher(logger)
         registerBackendCommands()
+
+        startSessionTracking()
+        startGeolocation()
 
         // Restart collection
         startCollectionLoop()
@@ -228,14 +263,34 @@ class AgentRuntime(
      * @param username   Current in-game name
      * @param hostname   The server address the player connected to, or null
      *                   if unavailable on this platform.
+     * @param clientBrand     `minecraft:brand` value, or null if unreadable.
+     * @param clientVersion   Client version string, or null if unresolvable.
+     * @param protocolVersion Handshake protocol number, or null if unreadable.
+     * @param address    The player's network address, used only to derive a
+     *                   country code on this machine. It is never transmitted,
+     *                   stored or logged, and is ignored unless the owner has
+     *                   turned geolocation on.
      */
-    fun onPlayerJoin(playerUuid: String, username: String, hostname: String?) {
+    @JvmOverloads
+    fun onPlayerJoin(
+        playerUuid: String,
+        username: String,
+        hostname: String?,
+        clientBrand: String? = null,
+        clientVersion: String? = null,
+        protocolVersion: Int? = null,
+        address: InetAddress? = null
+    ) {
         if (!running || !::transport.isInitialized) return
         val payload = PlayerEventPayload(
             event = "join",
             playerUuid = playerUuid,
             username = username,
-            hostname = hostname
+            hostname = hostname,
+            clientBrand = clientBrand,
+            clientVersion = clientVersion,
+            protocolVersion = protocolVersion,
+            countryCode = address?.let { geolocation?.countryCode(it) }
         )
         try {
             transport.sendPlayerEvent(payload)
@@ -253,6 +308,11 @@ class AgentRuntime(
      */
     fun onPlayerLeave(playerUuid: String, username: String) {
         if (!running || !::transport.isInitialized) return
+
+        // The counters go first: once the leave event lands the backend closes
+        // the session, and a flush arriving after that has nothing to attach to.
+        sessionTracker?.finish(playerUuid)?.let { flushSessionMetrics(listOf(it)) }
+
         val payload = PlayerEventPayload(
             event = "leave",
             playerUuid = playerUuid,
@@ -264,6 +324,22 @@ class AgentRuntime(
         } catch (e: Exception) {
             logger.error("Failed to send player leave event", e)
         }
+    }
+
+    /**
+     * Called by proxy modules when a player arrives on, moves between, or
+     * leaves the network.
+     *
+     * Safe to call from a proxy event thread: the transition is buffered and
+     * sent by the collection loop, so no event handler waits on HTTP.
+     *
+     * @param reason one of [PlayerSwitchPayload.REASON_JOIN],
+     *               [PlayerSwitchPayload.REASON_SWITCH] or
+     *               [PlayerSwitchPayload.REASON_DISCONNECT]
+     */
+    fun onPlayerSwitch(playerUuid: String, fromServer: String?, toServer: String?, reason: String) {
+        if (!running) return
+        switchBuffer.record(playerUuid, fromServer, toServer, reason)
     }
 
     private fun startCollectionLoop() {
@@ -285,9 +361,35 @@ class AgentRuntime(
             val snapshot = assembler.assemble()
             val requestSequence = ingestSequence.incrementAndGet()
 
+            // Reading a player's world and latency is main-thread work, so it
+            // happens here rather than in the async sender below.
+            val tracker = sessionTracker
+            var sessionFlush: List<PlayerSessionMetricsPayload> = emptyList()
+            if (tracker != null) {
+                tracker.sample()
+                val now = System.currentTimeMillis()
+                if (now - lastSessionFlushAt >= config.sessionFlushSeconds * 1000L) {
+                    lastSessionFlushAt = now
+                    sessionFlush = tracker.drain()
+                }
+            }
+
+            val extensionFlush = collectExtensions()
+            val switchFlush = switchBuffer.drain(SWITCH_FLUSH_LIMIT)
+
             // Send on async thread to avoid blocking the server
             platform.scheduler().runAsync(Runnable {
                 try {
+                    if (sessionFlush.isNotEmpty()) {
+                        transport.sendPlayerSessions(sessionFlush)
+                    }
+                    if (switchFlush.isNotEmpty()) {
+                        transport.sendPlayerSwitches(switchFlush)
+                    }
+                    if (extensionFlush != null) {
+                        transport.sendPlayerExtensions(extensionFlush)
+                    }
+                    geolocation?.ensureCurrent()
                     val response = transport.sendSnapshot(snapshot)
                     if (response?.status == "accepted" && claimCommandSequence(requestSequence)) {
                         backendCommandDispatcher.dispatch(response.commands ?: emptyList())
@@ -329,22 +431,106 @@ class AgentRuntime(
         ))
     }
 
+    private fun startSessionTracking() {
+        if (!config.collectPlayerMetrics) {
+            sessionTracker = null
+            logger.info("Per-player metrics are disabled by config.")
+            return
+        }
+
+        sessionTracker = SessionTracker(
+            platform = platform,
+            afkThresholdMillis = config.afkThresholdSeconds * 1000L
+        )
+        lastSessionFlushAt = System.currentTimeMillis()
+    }
+
+    private fun startGeolocation() {
+        if (!config.geolocationEnabled || !platform.capabilities.supportsPlayerAddress) {
+            geolocation = null
+            return
+        }
+
+        val service = GeolocationService(File(platform.dataFolder(), GEOLOCATION_CACHE_DIR), logger)
+        geolocation = service
+        platform.scheduler().runAsync(Runnable {
+            // The first announcement went out before the download could finish,
+            // and the capability is only true once the database is usable.
+            if (service.ensureCurrent()) {
+                sendAgentInfoAsync()
+            }
+        })
+    }
+
+    /** Reads mirrored plugin state on the main thread, or null when nothing is due. */
+    private fun collectExtensions(): PlayerExtensionsPayload? {
+        val source = platform.extensions() ?: return null
+        if (source.capabilities().isEmpty()) return null
+
+        val now = System.currentTimeMillis()
+        if (now - lastExtensionFlushAt < config.extensionFlushSeconds * 1000L) return null
+        lastExtensionFlushAt = now
+
+        return try {
+            source.collect().takeIf { it.state.isNotEmpty() || it.punishments.isNotEmpty() }
+        } catch (e: Exception) {
+            logger.debug("Extension snapshot failed: " + e.message)
+            null
+        }
+    }
+
+    private fun flushNetworkSwitches() {
+        if (!::transport.isInitialized) {
+            switchBuffer.clear()
+            return
+        }
+
+        while (true) {
+            val batch = switchBuffer.drain(SWITCH_FLUSH_LIMIT)
+            if (batch.isEmpty()) return
+            try {
+                transport.sendPlayerSwitches(batch)
+            } catch (e: Exception) {
+                logger.debug("Failed to flush network switches: " + e.message)
+                switchBuffer.clear()
+                return
+            }
+        }
+    }
+
+    private fun flushSessionMetrics(entries: List<PlayerSessionMetricsPayload>) {
+        if (entries.isEmpty() || !::transport.isInitialized) return
+        try {
+            transport.sendPlayerSessions(entries)
+        } catch (e: Exception) {
+            logger.debug("Failed to flush session metrics: ${e.message}")
+        }
+    }
+
     private fun logCapabilities() {
         val caps = platform.capabilities
         logger.debug("Capabilities: " +
             "mspt=${caps.supportsMspt}, " +
             "nativeTickTimes=${caps.supportsNativeTickTimes}, " +
             "asyncChunkStats=${caps.supportsAsyncChunkStats}, " +
-            "tpsApi=${caps.supportsTpsApi}")
+            "tpsApi=${caps.supportsTpsApi}, " +
+            "playerPing=${caps.supportsPlayerPing}, " +
+            "clientBrand=${caps.supportsClientBrand}, " +
+            "protocolVersion=${caps.supportsProtocolVersion}, " +
+            "playerWorld=${caps.supportsPlayerWorld}, " +
+            "activityTracking=${caps.supportsActivityTracking}, " +
+            "playerAddress=${caps.supportsPlayerAddress}, " +
+            "networkSwitches=${caps.supportsNetworkSwitches}")
     }
 
     private fun sendAgentInfoAsync() {
         if (!::transport.isInitialized) return
 
         val agentVersion = AgentVersion.resolve()
+        val capabilities = AgentCapabilityReport.resolve(platform, config, geolocation?.isReady == true)
         platform.scheduler().runAsync(Runnable {
             try {
-                val ok = transport.sendAgentInfo(agentVersion)
+                val ok = transport.sendAgentInfo(agentVersion, capabilities)
                 if (!ok && config.debug) {
                     logger.debug("Failed to update backend agent version metadata.")
                 }
@@ -378,6 +564,12 @@ class AgentRuntime(
                 }
             }
         })
+    }
+
+    private companion object {
+        /** One batch per collection tick, matching the backend's per-request cap. */
+        const val SWITCH_FLUSH_LIMIT = 200
+        const val GEOLOCATION_CACHE_DIR = "geoip"
     }
 
     /** Result of a [reload] operation. */

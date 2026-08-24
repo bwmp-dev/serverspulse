@@ -42,6 +42,20 @@ class BukkitSchedulerAdapter(private val plugin: JavaPlugin) : SchedulerAdapter 
         plugin.server.scheduler.runTask(plugin, task)
     }
 
+    /**
+     * Runs work on the primary execution context after [delayTicks].
+     *
+     * Some client state — the `minecraft:brand` channel in particular — is not
+     * negotiated until shortly after login, so reading it immediately returns
+     * nothing.
+     */
+    fun runLater(delayTicks: Long, task: Runnable) {
+        if (foliaBridge.runDelayed(delayTicks, task)) {
+            return
+        }
+        plugin.server.scheduler.runTaskLater(plugin, task, delayTicks)
+    }
+
     private class BukkitTaskHandle(private val task: BukkitTask) : TaskHandle {
         override fun cancel() {
             task.cancel()
@@ -74,6 +88,20 @@ class BukkitSchedulerAdapter(private val plugin: JavaPlugin) : SchedulerAdapter 
             "run",
             Plugin::class.java,
             Consumer::class.java
+        )
+        private val globalRunDelayedConsumer: Method? = resolveMethod(
+            globalScheduler,
+            "runDelayed",
+            Plugin::class.java,
+            Consumer::class.java,
+            java.lang.Long.TYPE
+        )
+        private val globalRunDelayedRunnable: Method? = resolveMethod(
+            globalScheduler,
+            "runDelayed",
+            Plugin::class.java,
+            Runnable::class.java,
+            java.lang.Long.TYPE
         )
         private val globalExecuteRunnable: Method? = resolveMethod(
             globalScheduler,
@@ -135,6 +163,16 @@ class BukkitSchedulerAdapter(private val plugin: JavaPlugin) : SchedulerAdapter 
             }
 
             return invokeSuccessfully(globalExecuteRunnable, scheduler, plugin, task)
+        }
+
+        fun runDelayed(delayTicks: Long, task: Runnable): Boolean {
+            val scheduler = globalScheduler ?: return false
+
+            if (invokeSuccessfully(globalRunDelayedConsumer, scheduler, plugin, Consumer<Any> { task.run() }, delayTicks)) {
+                return true
+            }
+
+            return invokeSuccessfully(globalRunDelayedRunnable, scheduler, plugin, task, delayTicks)
         }
 
         private fun resolveBukkitScheduler(methodName: String): Any? {

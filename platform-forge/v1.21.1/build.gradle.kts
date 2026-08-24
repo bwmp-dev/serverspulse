@@ -21,17 +21,30 @@ val forge120MergedJar = project(":platform-forge:v1.20.1")
     .buildDirectory
     .file("moddev/artifacts/forge-${libs.versions.forge.mc1201.get()}-merged.jar")
 
+val minecraftCompileStubClasses = layout.buildDirectory.dir("minecraft/stub-classes")
+
+val extractMinecraftCompileStub by tasks.registering {
+    dependsOn(":platform-forge:v1.20.1:createMinecraftArtifacts")
+    outputs.dir(minecraftCompileStubClasses)
+
+    doLast {
+        sync {
+            from(zipTree(forge120MergedJar.get().asFile)) {
+                include("net/minecraft/**")
+                include("com/mojang/**")
+            }
+            into(minecraftCompileStubClasses)
+        }
+    }
+}
+
 val minecraftCompileStubJar by tasks.registering(Jar::class) {
     archiveBaseName.set("minecraft-1.20.1-api")
     archiveClassifier.set("for-1.21.1-compile")
     destinationDirectory.set(layout.buildDirectory.dir("minecraft"))
 
-    dependsOn(":platform-forge:v1.20.1:createMinecraftArtifacts")
-
-    from(forge120MergedJar.map { zipTree(it.asFile) }) {
-        include("net/minecraft/**")
-        include("com/mojang/**")
-    }
+    dependsOn(extractMinecraftCompileStub)
+    from(minecraftCompileStubClasses)
 }
 
 val shade: Configuration = configurations.create("shade") {

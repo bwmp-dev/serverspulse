@@ -43,6 +43,11 @@ val extractMinecraftCompileStub by tasks.registering {
     }
 }
 
+project(":platform-forge:v1.20.1").tasks.named("createMinecraftArtifacts") {
+    outputs.file(forge120MergedJar)
+    finalizedBy(extractMinecraftCompileStub)
+}
+
 val minecraftCompileStubJar by tasks.registering(Jar::class) {
     archiveBaseName.set("minecraft-1.20.1-api")
     archiveClassifier.set("for-1.21.11-compile")

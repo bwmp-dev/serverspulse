@@ -358,7 +358,7 @@ class AgentRuntime(
 
         try {
             // Assemble snapshot on main thread (safe world access)
-            val snapshot = assembler.assemble()
+            var snapshot = assembler.assemble()
             val requestSequence = ingestSequence.incrementAndGet()
 
             // Reading a player's world and latency is main-thread work, so it
@@ -366,7 +366,7 @@ class AgentRuntime(
             val tracker = sessionTracker
             var sessionFlush: List<PlayerSessionMetricsPayload> = emptyList()
             if (tracker != null) {
-                tracker.sample()
+                snapshot = snapshot.copy(playerPings = tracker.sample())
                 val now = System.currentTimeMillis()
                 if (now - lastSessionFlushAt >= config.sessionFlushSeconds * 1000L) {
                     lastSessionFlushAt = now

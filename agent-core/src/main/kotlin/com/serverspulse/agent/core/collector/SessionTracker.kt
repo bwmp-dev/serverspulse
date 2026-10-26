@@ -1,6 +1,7 @@
 package com.serverspulse.agent.core.collector
 
 import com.serverspulse.agent.api.PlatformAdapter
+import com.serverspulse.agent.api.dto.PlayerPingSnapshot
 import com.serverspulse.agent.api.dto.PlayerSessionMetricsPayload
 import java.util.concurrent.ConcurrentHashMap
 
@@ -44,9 +45,11 @@ class SessionTracker(
      * end of it is the only option available at this sampling rate, and at a
      * 30-second tick the error is bounded by one interval per state change.
      */
-    fun sample() {
+    fun sample(): List<PlayerPingSnapshot> {
         val now = clock()
         val seen = HashSet<String>()
+        val pings = mutableListOf<PlayerPingSnapshot>()
+        var omittedPings = 0
 
         for (player in platform.players()) {
             val uuid = player.uuid
@@ -81,6 +84,11 @@ class SessionTracker(
                 state.pingMax = maxOf(state.pingMax ?: ping, ping)
                 state.pingTotal += ping
                 state.pingSamples++
+                if (ping <= 60_000 && pings.size < 5_000) {
+                    pings.add(PlayerPingSnapshot(uuid, ping))
+                } else if (ping <= 60_000) {
+                    omittedPings++
+                }
             }
         }
 
@@ -88,6 +96,10 @@ class SessionTracker(
         // by the leave path; holding the entry any longer would leak memory and
         // would restart their next session with the previous one's totals.
         states.keys.retainAll(seen)
+        if (omittedPings > 0) {
+            platform.logger().warn("Ping history snapshot reached its 5000-player limit; $omittedPings readings omitted.")
+        }
+        return pings
     }
 
     /** Builds a payload for every player currently being tracked. */

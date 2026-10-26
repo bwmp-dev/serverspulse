@@ -26,5 +26,6 @@ data class ServerSnapshot(
     val cpuProcessPct: Double? = null,
     val cpuSystemPct: Double? = null,
     val diskUsedMB: Long? = null,
-    val diskTotalMB: Long? = null
+    val diskTotalMB: Long? = null,
+    val playerPings: List<PlayerPingSnapshot> = emptyList()
 )

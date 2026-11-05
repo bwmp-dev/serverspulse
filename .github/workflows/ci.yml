@@ -33,6 +33,12 @@ jobs:
       - name: Build all agent artifacts
         run: ./gradlew build --no-daemon
 
+      - name: Verify proxy variants and embedded library were collected
+        run: |
+          test -n "$(find build/artifacts -name 'serverspulse-velocity-v4-*.jar' -print -quit)"
+          test -n "$(find build/artifacts -name 'serverspulse-velocity-[0-9]*.jar' -print -quit)"
+          test -n "$(find build/artifacts -name 'serverspulse-minestom-*.jar' -print -quit)"
+
       - uses: actions/upload-artifact@v4
         with:
           name: serverspulse-agent

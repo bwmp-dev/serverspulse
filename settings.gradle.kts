@@ -31,3 +31,7 @@ include("platform-neoforge:v1.20.6")
 include("platform-neoforge:v26.1.2")
 include("platform-velocity")
 include("platform-bungee")
+
+include("platform-minestom")
+
+include(":platform-velocity:v4")

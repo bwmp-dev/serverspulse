@@ -41,7 +41,7 @@ object AgentCapabilityReport {
         val capabilities = mutableListOf<String>()
         val caps = platform.capabilities
 
-        if (config.collectPlayerMetrics) {
+        if (config.collectPlayerData && config.collectPlayerMetrics) {
             if (caps.supportsPlayerPing) capabilities.add(PLAYER_PING)
             if (caps.supportsClientBrand) capabilities.add(CLIENT_BRAND)
             if (caps.supportsProtocolVersion) capabilities.add(PROTOCOL_VERSION)
@@ -49,16 +49,20 @@ object AgentCapabilityReport {
             if (caps.supportsPlayerWorld) capabilities.add(WORLD_TIME)
         }
 
-        if (config.geolocationEnabled && caps.supportsPlayerAddress && geolocationReady) {
+        if (config.collectPlayerData && !config.hashPlayerIdentifiers && config.geolocationEnabled && caps.supportsPlayerAddress && geolocationReady) {
             capabilities.add(GEOLOCATION)
         }
 
-        if (caps.supportsNetworkSwitches) capabilities.add(NETWORK_SWITCHES)
+        if (config.collectPlayerData && caps.supportsNetworkSwitches) capabilities.add(NETWORK_SWITCHES)
 
         if (SystemMetrics.supportsCpuMetrics()) capabilities.add(CPU_METRICS)
-        if (SystemMetrics.diskTotalMB(platform.dataFolder()) != null) capabilities.add(DISK_METRICS)
+        if (SystemMetrics.diskTotalMB(com.serverspulse.agent.core.config.ConfigLoader.resolveDataFolder(platform.dataFolder())) != null) capabilities.add(DISK_METRICS)
 
-        platform.extensions()?.let { capabilities.addAll(it.capabilities()) }
+        if (config.collectPlayerData && !config.hashPlayerIdentifiers) {
+            platform.extensions()?.let { capabilities.addAll(it.capabilities()) }
+        }
+        if (!config.collectPlayerData) capabilities.add("performance_only")
+        if (config.hashPlayerIdentifiers) capabilities.add("hashed_player_identifiers")
 
         return capabilities
     }

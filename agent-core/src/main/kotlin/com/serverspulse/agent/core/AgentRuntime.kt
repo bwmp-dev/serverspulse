@@ -61,6 +61,10 @@ class AgentRuntime(
     // buffer is the handoff point between those and the collection loop.
     private val switchBuffer = NetworkSwitchBuffer()
 
+    private var identity: PlayerIdentity? = null
+
+    private fun playerId(raw: String): String = identity?.uuid(raw) ?: raw
+
     private var geolocation: GeolocationService? = null
 
     @Volatile
@@ -100,6 +104,8 @@ class AgentRuntime(
             logger = logger
         )
 
+        identity = if (config.hashPlayerIdentifiers) PlayerIdentity(ConfigLoader.resolveDataFolder(platform.dataFolder())) else null
+
         sendAgentInfoAsync()
         checkForUpdatesAsync()
 
@@ -120,6 +126,7 @@ class AgentRuntime(
      * Call this from the platform's onDisable/shutdown hook.
      */
     fun stop() {
+        ServersPulse.setRunning(false)
         running = false
         collectionTask?.cancel()
         collectionTask = null
@@ -174,6 +181,8 @@ class AgentRuntime(
             apiKey = config.apiKey,
             logger = logger
         )
+
+        identity = if (config.hashPlayerIdentifiers) PlayerIdentity(ConfigLoader.resolveDataFolder(platform.dataFolder())) else null
 
         sendAgentInfoAsync()
         checkForUpdatesAsync()
@@ -281,12 +290,12 @@ class AgentRuntime(
         protocolVersion: Int? = null,
         address: InetAddress? = null
     ) {
-        if (!running || !::transport.isInitialized) return
+        if (!running || !config.collectPlayerData || !::transport.isInitialized) return
         val payload = PlayerEventPayload(
             event = "join",
-            playerUuid = playerUuid,
-            username = username,
-            hostname = hostname,
+            playerUuid = playerId(playerUuid),
+            username = identity?.username(playerUuid) ?: username,
+            hostname = if (identity == null) hostname else null,
             clientBrand = clientBrand,
             clientVersion = clientVersion,
             protocolVersion = protocolVersion,
@@ -307,7 +316,7 @@ class AgentRuntime(
      * @param username   Current in-game name
      */
     fun onPlayerLeave(playerUuid: String, username: String) {
-        if (!running || !::transport.isInitialized) return
+        if (!running || !config.collectPlayerData || !::transport.isInitialized) return
 
         // The counters go first: once the leave event lands the backend closes
         // the session, and a flush arriving after that has nothing to attach to.
@@ -315,8 +324,8 @@ class AgentRuntime(
 
         val payload = PlayerEventPayload(
             event = "leave",
-            playerUuid = playerUuid,
-            username = username,
+            playerUuid = playerId(playerUuid),
+            username = identity?.username(playerUuid) ?: username,
             hostname = null
         )
         try {
@@ -338,12 +347,13 @@ class AgentRuntime(
      *               [PlayerSwitchPayload.REASON_DISCONNECT]
      */
     fun onPlayerSwitch(playerUuid: String, fromServer: String?, toServer: String?, reason: String) {
-        if (!running) return
-        switchBuffer.record(playerUuid, fromServer, toServer, reason)
+        if (!running || !config.collectPlayerData) return
+        switchBuffer.record(playerId(playerUuid), fromServer, toServer, reason)
     }
 
     private fun startCollectionLoop() {
         val intervalTicks = config.intervalSeconds.toLong() * 20L
+        ServersPulse.setRunning(true)
         running = true
         collectionTask = platform.scheduler().scheduleRepeating(intervalTicks, Runnable {
             collectAndSend()
@@ -358,7 +368,7 @@ class AgentRuntime(
 
         try {
             // Assemble snapshot on main thread (safe world access)
-            var snapshot = assembler.assemble()
+            var snapshot = assembler.assemble().copy(customTelemetry = ServersPulse.drain())
             val requestSequence = ingestSequence.incrementAndGet()
 
             // Reading a player's world and latency is main-thread work, so it
@@ -366,7 +376,7 @@ class AgentRuntime(
             val tracker = sessionTracker
             var sessionFlush: List<PlayerSessionMetricsPayload> = emptyList()
             if (tracker != null) {
-                snapshot = snapshot.copy(playerPings = tracker.sample())
+                snapshot = snapshot.copy(playerPings = tracker.sample().map { it.copy(playerUuid = playerId(it.playerUuid)) })
                 val now = System.currentTimeMillis()
                 if (now - lastSessionFlushAt >= config.sessionFlushSeconds * 1000L) {
                     lastSessionFlushAt = now
@@ -381,7 +391,7 @@ class AgentRuntime(
             platform.scheduler().runAsync(Runnable {
                 try {
                     if (sessionFlush.isNotEmpty()) {
-                        transport.sendPlayerSessions(sessionFlush)
+                        transport.sendPlayerSessions(sessionFlush.map { it.copy(playerUuid = playerId(it.playerUuid)) })
                     }
                     if (switchFlush.isNotEmpty()) {
                         transport.sendPlayerSwitches(switchFlush)
@@ -432,7 +442,7 @@ class AgentRuntime(
     }
 
     private fun startSessionTracking() {
-        if (!config.collectPlayerMetrics) {
+        if (!config.collectPlayerData || !config.collectPlayerMetrics) {
             sessionTracker = null
             logger.info("Per-player metrics are disabled by config.")
             return
@@ -446,12 +456,12 @@ class AgentRuntime(
     }
 
     private fun startGeolocation() {
-        if (!config.geolocationEnabled || !platform.capabilities.supportsPlayerAddress) {
+        if (!config.collectPlayerData || config.hashPlayerIdentifiers || !config.geolocationEnabled || !platform.capabilities.supportsPlayerAddress) {
             geolocation = null
             return
         }
 
-        val service = GeolocationService(File(platform.dataFolder(), GEOLOCATION_CACHE_DIR), logger)
+        val service = GeolocationService(File(ConfigLoader.resolveDataFolder(platform.dataFolder()), GEOLOCATION_CACHE_DIR), logger)
         geolocation = service
         platform.scheduler().runAsync(Runnable {
             // The first announcement went out before the download could finish,
@@ -464,6 +474,7 @@ class AgentRuntime(
 
     /** Reads mirrored plugin state on the main thread, or null when nothing is due. */
     private fun collectExtensions(): PlayerExtensionsPayload? {
+        if (!config.collectPlayerData || config.hashPlayerIdentifiers) return null
         val source = platform.extensions() ?: return null
         if (source.capabilities().isEmpty()) return null
 
@@ -501,7 +512,7 @@ class AgentRuntime(
     private fun flushSessionMetrics(entries: List<PlayerSessionMetricsPayload>) {
         if (entries.isEmpty() || !::transport.isInitialized) return
         try {
-            transport.sendPlayerSessions(entries)
+            transport.sendPlayerSessions(entries.map { it.copy(playerUuid = playerId(it.playerUuid)) })
         } catch (e: Exception) {
             logger.debug("Failed to flush session metrics: ${e.message}")
         }

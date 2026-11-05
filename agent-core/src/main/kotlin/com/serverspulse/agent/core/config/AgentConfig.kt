@@ -23,6 +23,10 @@ data class AgentConfig(
     /** Whether per-player metrics (AFK, ping, world time) are collected at all. */
     val collectPlayerMetrics: Boolean = true,
 
+    val collectPlayerData: Boolean = true,
+
+    val hashPlayerIdentifiers: Boolean = false,
+
     /** Idle time after which a player counts as AFK. */
     val afkThresholdSeconds: Int = DEFAULT_AFK_THRESHOLD_SECONDS,
 

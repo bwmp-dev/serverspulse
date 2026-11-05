@@ -36,6 +36,8 @@ object ConfigLoader {
         # server version can actually measure is reported; the dashboard shows
         # the rest as "not reported" rather than as zero.
         collect-player-metrics: true
+        collect-player-data: true
+        hash-player-identifiers: false
 
         # Idle time before a player counts as AFK, in seconds.
         afk-threshold-seconds: 300
@@ -62,10 +64,11 @@ object ConfigLoader {
      * from the default template with the key already filled in.
      */
     fun saveApiKey(dataFolder: File, apiKey: String, logger: LoggerAdapter) {
-        val configFile = File(dataFolder, AgentConfig.CONFIG_FILE_NAME)
+        val folder = resolveDataFolder(dataFolder)
+        val configFile = File(folder, AgentConfig.CONFIG_FILE_NAME)
 
         if (!configFile.exists()) {
-            dataFolder.mkdirs()
+            folder.mkdirs()
             FileWriter(configFile).use {
                 it.write(DEFAULT_CONFIG_CONTENT.replace("api-key: \"\"", "api-key: \"$apiKey\""))
             }
@@ -90,20 +93,36 @@ object ConfigLoader {
         logger.info("API key saved to config.yml.")
     }
 
-    fun load(dataFolder: File, logger: LoggerAdapter): AgentConfig {
-        val configFile = File(dataFolder, AgentConfig.CONFIG_FILE_NAME)
+    fun load(dataFolder: File, logger: LoggerAdapter): AgentConfig =
+        load(dataFolder, logger, System.getenv(), System.getProperties().stringPropertyNames()
+            .associateWith { System.getProperty(it) })
+
+    internal fun resolveDataFolder(
+        dataFolder: File,
+        environment: Map<String, String> = System.getenv(),
+        properties: Map<String, String> = System.getProperties().stringPropertyNames()
+            .associateWith { System.getProperty(it) }
+    ): File = (properties["serverspulse.data-folder"] ?: environment["SERVERSPULSE_DATA_FOLDER"])
+        ?.let { require(it.isNotBlank()) { "serverspulse.data-folder must not be blank" }; File(it) }
+        ?: dataFolder
+
+    internal fun load(
+        dataFolder: File, logger: LoggerAdapter,
+        environment: Map<String, String>, properties: Map<String, String>
+    ): AgentConfig {
+        val folder = resolveDataFolder(dataFolder, environment, properties)
+        val configFile = File(folder, AgentConfig.CONFIG_FILE_NAME)
 
         if (!configFile.exists()) {
-            dataFolder.mkdirs()
+            folder.mkdirs()
             FileWriter(configFile).use { it.write(DEFAULT_CONFIG_CONTENT) }
             logger.info("Created default config.yml - please set your API key.")
-            return AgentConfig()
         }
 
-        return try {
+        val fromFile = try {
             val yaml = Yaml()
             val data: Map<String, Any?> = configFile.inputStream().use { yaml.load(it) }
-                ?: return AgentConfig()
+                ?: emptyMap()
 
             AgentConfig(
                 apiKey = (data["api-key"] as? String) ?: "",
@@ -113,6 +132,8 @@ object ConfigLoader {
                 debug = (data["debug"] as? Boolean) ?: false,
                 allowBackendSparkProfiling =
                     (data["allow-backend-spark-profiling"] as? Boolean) ?: false,
+                collectPlayerData = (data["collect-player-data"] as? Boolean) ?: true,
+                hashPlayerIdentifiers = (data["hash-player-identifiers"] as? Boolean) ?: false,
                 collectPlayerMetrics = (data["collect-player-metrics"] as? Boolean) ?: true,
                 afkThresholdSeconds = (data["afk-threshold-seconds"] as? Number)?.toInt()
                     ?: AgentConfig.DEFAULT_AFK_THRESHOLD_SECONDS,
@@ -126,5 +147,24 @@ object ConfigLoader {
             logger.error("Failed to load config.yml, using defaults", e)
             AgentConfig()
         }
+        fun override(key: String): String? = properties["serverspulse.$key"]
+            ?: environment["SERVERSPULSE_${key.replace('-', '_').uppercase(java.util.Locale.ROOT)}"]
+        return fromFile.copy(
+            collectPlayerData = override("collect-player-data")?.let {
+                it.toBooleanStrictOrNull() ?: throw IllegalArgumentException("serverspulse.collect-player-data must be true or false")
+            } ?: fromFile.collectPlayerData,
+            hashPlayerIdentifiers = override("hash-player-identifiers")?.let {
+                it.toBooleanStrictOrNull() ?: throw IllegalArgumentException("serverspulse.hash-player-identifiers must be true or false")
+            } ?: fromFile.hashPlayerIdentifiers,
+            apiKey = override("api-key") ?: fromFile.apiKey,
+            backendUrl = override("backend-url") ?: fromFile.backendUrl,
+            intervalSeconds = override("interval-seconds")?.let {
+                it.toIntOrNull() ?: throw IllegalArgumentException("serverspulse.interval-seconds must be an integer")
+            } ?: fromFile.intervalSeconds,
+            collectPlayerMetrics = override("collect-player-metrics")?.let {
+                it.toBooleanStrictOrNull()
+                    ?: throw IllegalArgumentException("serverspulse.collect-player-metrics must be true or false")
+            } ?: fromFile.collectPlayerMetrics
+        )
     }
 }

@@ -312,7 +312,7 @@ class TransportClient(
                     return UpdateCheckResult(false, null, "release payload missing version")
                 }
 
-                val targetPlatform = mapPlatformToReleaseKey(platformId)
+                val targetPlatform = mapPlatformToReleaseKey(if (platformId == "velocity" && mcVersion.startsWith("4.")) "velocity-v4" else platformId)
                 val hasCompatibleArtifact = release.artifacts.orEmpty().any { artifact ->
                     val artifactPlatform = artifact.platform?.trim()?.lowercase().orEmpty()
                     if (artifactPlatform != targetPlatform) {
@@ -337,6 +337,8 @@ class TransportClient(
     private fun mapPlatformToReleaseKey(platformId: String): String {
         val raw = platformId.trim().lowercase()
         return when {
+            raw.contains("minestom") -> "minestom"
+            raw == "velocity-v4" -> "velocity-v4"
             raw.contains("velocity") -> "velocity"
             raw.contains("waterfall") -> "waterfall"
             raw.contains("bungee") -> "bungeecord"

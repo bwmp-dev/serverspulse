@@ -19,7 +19,7 @@ class SnapshotAssembler(private val platform: PlatformAdapter) {
 
     // The data folder lives on the same filesystem as the server itself, and is
     // the one path the core runtime is guaranteed to know.
-    private val diskRoot = platform.dataFolder()
+    private val diskRoot = com.serverspulse.agent.core.config.ConfigLoader.resolveDataFolder(platform.dataFolder())
 
     /**
      * Collect all metrics and build a snapshot.

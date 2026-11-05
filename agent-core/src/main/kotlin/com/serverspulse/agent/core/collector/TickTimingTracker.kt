@@ -45,16 +45,23 @@ class TickTimingTracker {
         val duration = now - start
         if (duration <= 0) return
 
-        tickDurations[tickIndex % WINDOW_SIZE] = duration
-        tickIndex++
-        if (tickCount < WINDOW_SIZE) tickCount++
+        recordTickDurationNanos(duration)
         lastTickEndNanos = now
+    }
+
+    @Synchronized
+    fun recordTickDurationNanos(duration: Long) {
+        require(duration >= 0)
+        tickDurations[tickIndex] = duration
+        tickIndex = (tickIndex + 1) % WINDOW_SIZE
+        if (tickCount < WINDOW_SIZE) tickCount++
     }
 
     /**
      * Returns the current TPS based on average tick duration.
      * A tick taking 50ms = 20 TPS. A tick taking 100ms = 10 TPS.
      */
+    @Synchronized
     fun getTps(): Double {
         if (tickCount == 0) return 20.0
         val avgNanos = averageTickNanos()
@@ -66,6 +73,7 @@ class TickTimingTracker {
     /**
      * Returns the average milliseconds per tick (MSPT).
      */
+    @Synchronized
     fun getMspt(): Double {
         if (tickCount == 0) return 0.0
         return averageTickNanos() / NANOS_PER_MS

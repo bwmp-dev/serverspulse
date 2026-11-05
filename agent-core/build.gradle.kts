@@ -8,3 +8,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.snakeyaml)
 }
+
+dependencies {
+    testImplementation(kotlin("test-junit"))
+}

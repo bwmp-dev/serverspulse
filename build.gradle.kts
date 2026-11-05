@@ -41,6 +41,8 @@ tasks.register<Sync>("collectPlatformArtifacts") {
     dependsOn(
         ":platform-bukkit:shadowJar",
         ":platform-velocity:shadowJar",
+        ":platform-velocity:v4:shadowJar",
+        ":platform-minestom:shadowJar",
         ":platform-bungee:shadowJar",
         ":platform-fabric:remapJar",
         ":platform-forge:v1.20.1:reobfShadowJar",
@@ -61,6 +63,12 @@ tasks.register<Sync>("collectPlatformArtifacts") {
     }
     from(project(":platform-velocity").layout.buildDirectory.dir("libs")) {
         include("serverspulse-velocity-${releaseVersion}.jar")
+    }
+    from(project(":platform-minestom").layout.buildDirectory.dir("libs")) {
+        include("serverspulse-minestom-${releaseVersion}.jar")
+    }
+    from(project(":platform-velocity:v4").layout.buildDirectory.dir("libs")) {
+        include("serverspulse-velocity-v4-${releaseVersion}.jar")
     }
     // One artifact for BungeeCord and Waterfall: they share the API, and the
     // agent reports which of the two it is running on at runtime.

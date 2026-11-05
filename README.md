@@ -44,6 +44,9 @@ numbered `26.1`, `26.2`, and so on. Both schemes appear in the table below.
 | Platform | Intended Minecraft versions | Explicit test coverage | Artifact |
 | --- | --- | --- | --- |
 | Bukkit / Spigot / Paper / Purpur / Folia | 1.8.8–26.2 | Paper 1.8.8, 1.21.11, and 26.2 | `serverspulse-bukkit-*.jar` |
+| Minestom (embedded library, Java 25) | 26.2 / Minestom 2026.10.07-26.2 | In-process instance/snapshot and lifecycle test | `serverspulse-minestom-*.jar` |
+| Velocity 3 (Java 17+) | Proxy | Compiles against API 3.4.0; live load not verified here | `serverspulse-velocity-*.jar` |
+| Velocity 4.3.1 (Java 25+) | Proxy | Compiles against API 4.3.1; live load not verified here | `serverspulse-velocity-v4-*.jar` |
 | Fabric | 1.14.4–26.2 | Fabric 1.14.4, 1.21.11, and 26.2 | `serverspulse-fabric-*.jar` |
 | Forge | 1.16.5 | Forge 1.16.5 | `serverspulse-forge-1.16.5-*.jar` |
 | Forge | 1.18.2–1.20.6 | Forge 1.18.2, 1.19.2, and 1.20.1 | `serverspulse-forge-1.20.1-*.jar` |
@@ -193,3 +196,142 @@ Licensed under the [Apache License 2.0](LICENSE). The ServersPulse name and logo
 are trademarks of BWMP and are not licensed for use as branding for derivative
 products. See [NOTICE](NOTICE) and
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Embedded Minestom library
+
+Minestom has no plugin loader. Publish the bundled library locally with
+`./gradlew :platform-minestom:publishToMavenLocal`, then use Maven coordinates
+`com.serverspulse:serverspulse-minestom:1.0.0` (or the current build version).
+Gradle consumers must enable `mavenLocal()`. Maven uses the local repository
+by default:
+
+```xml
+<dependency>
+  <groupId>com.serverspulse</groupId>
+  <artifactId>serverspulse-minestom</artifactId>
+  <version>1.0.0</version>
+</dependency>
+```
+
+After `MinecraftServer.init()`, start the agent from your Java application:
+
+```java
+import com.serverspulse.agent.minestom.ServersPulseMinestom;
+import java.io.File;
+
+var monitoring = ServersPulseMinestom.start(
+    new ServersPulseMinestom.Options(new File("serverspulse"), 100));
+// During application shutdown, before MinecraftServer.stopCleanly():
+monitoring.stop();
+```
+
+Use Java 25 and Minestom `2026.10.07-26.2`. The published jar bundles the agent
+and relocates Gson, OkHttp, Okio, SnakeYAML and Kotlin; it does not bundle
+Minestom. Include it in your application's shaded jar. `maxPlayers` is supplied
+by the application (default 0 means unspecified), since Minestom has no global
+slot limit. Instances are identified by UUID and expose dimension keys, entity,
+chunk and player counts. Recreated instances have new UUIDs. MSPT comes from
+Minestom's tick monitor; TPS is null because its configurable tick rate makes
+the shared tracker's derived, capped-at-20 TPS misleading. The dashboard and
+backend already support null TPS. Player ping and instance membership are
+reported; AFK, client brand and protocol tracking are not claimed.
+
+Join/leave listeners and collection tasks are removed by `stop()`/`close()`.
+For an optional application-owned console command, pass arguments following
+`serverspulse` to `monitoring.executeConsoleCommand(args)`; do not route
+untrusted player input to this privileged console hook. Spark console execution
+remains gated by the existing explicit YAML opt-in.
+
+## Environment and JVM configuration overrides
+
+All platforms accept these overrides at startup and reload. Precedence is JVM
+system property, then environment variable, then `config.yml`, then defaults.
+An explicitly empty value wins precedence; invalid interval/boolean overrides
+fail loading without logging their values. Overrides are never saved to YAML.
+
+| Environment variable | JVM property | Purpose |
+| --- | --- | --- |
+| `SERVERSPULSE_API_KEY` | `serverspulse.api-key` | Server API key |
+| `SERVERSPULSE_BACKEND_URL` | `serverspulse.backend-url` | Trusted backend URL |
+| `SERVERSPULSE_DATA_FOLDER` | `serverspulse.data-folder` | Configuration and geolocation cache directory |
+| `SERVERSPULSE_INTERVAL_SECONDS` | `serverspulse.interval-seconds` | Snapshot interval, integer at least 5 |
+| `SERVERSPULSE_COLLECT_PLAYER_METRICS` | `serverspulse.collect-player-metrics` | Literal `true` or `false`; session/ping collection |
+
+For example, set `SERVERSPULSE_API_KEY` through the launcher's secret environment
+and use `-Dserverspulse.interval-seconds=10` before `-jar`. Give each process
+its own API key and data folder. Registration writes to the selected folder,
+but an overridden API key still wins on reload. Display names remain owned by
+the dashboard. `SERVERSPULSE_COLLECT_PLAYER_METRICS=false` does **not** disable join/leave
+events and is not a performance-only privacy mode.
+
+## Custom telemetry
+
+The stable Java facade `com.serverspulse.agent.api.ServersPulse` is included,
+unrelocated, in every shaded agent jar, including the published Minestom library.
+Call it after starting the embedded agent. All four methods return `boolean`:
+`false` means disabled, invalid input, or a local limit was reached. Calls before
+startup and after shutdown are harmless no-ops.
+
+```java
+import com.serverspulse.agent.api.ServersPulse;
+import java.util.Map;
+
+// After your ServersPulseMinestom instance has started:
+ServersPulse.gauge("match.queue_size", 12.0);
+ServersPulse.counter("match.completed", 1.0);
+ServersPulse.event("match.finished", Map.of("mode", "duel", "duration_seconds", 94));
+ServersPulse.annotate("Deployed game rules revision 12");
+```
+
+Signatures: `gauge(String, double)`, `counter(String, double)`,
+`event(String, Map<String, ?>)`, `annotate(String)`, all static and returning boolean.
+Names must match `[a-zA-Z][a-zA-Z0-9_.-]{0,63}`. Counters accept nonnegative,
+finite deltas; gauges accept any finite value. Gauges keep the last value per
+collection interval; counters sum interval deltas. At most 64 distinct metric
+name/kind pairs may be registered during a runtime, 100 events queued, and 10,000
+accepted calls per minute. Events have at most 16 scalar fields; string values,
+including annotations, are limited to 256 UTF-8 bytes. Nested fields are rejected.
+The Free plan accepts 16 metric names and 20 events per snapshot; other plans
+accept 64 and 100. Keep callers within their server's plan limits: a rejected
+snapshot is not automatically trimmed.
+
+Batches travel with snapshots and use their existing retry policy. Batch IDs
+prevent custom counters/events from being duplicated by retries. Buffers are
+in-memory; exhausted retries, crashes and shutdown can lose pending telemetry.
+Do not use this API as a durable audit log. See the dashboard's
+[custom telemetry documentation](https://serverspulse.com/docs/custom-telemetry/).
+
+## Player privacy
+
+Defaults are unchanged. Set `collect-player-data: false` to suppress join/leave,
+player pings, sessions, switches, geolocation and extension transmission while
+performance snapshots and aggregate online counts continue. This overrides
+`collect-player-metrics`. Custom telemetry remains enabled: never put player
+identifiers or other personal data in its free-form names or fields.
+
+Set `hash-player-identifiers: true` to replace UUIDs and usernames with server-local
+HMAC-SHA256 pseudonyms. A random 32-byte key is persisted as `player-identity.key`
+in the resolved agent data folder. Keep it private and back it up for stable
+identities. Removing it creates new identities; do not share it between servers.
+The API key is not used as the salt, so rotating API keys preserves identities.
+Hashes are not anonymous data: possession of this key permits testing known UUIDs.
+No key is transmitted. Geolocation, join hostnames and plugin extensions are
+suppressed in hashed mode because their free text may disclose identities.
+Proxy/backend pseudonyms differ, so cross-server identity correlation is unavailable.
+Existing backend history is retained when either mode changes.
+
+| YAML | Environment | JVM property |
+| --- | --- | --- |
+| `collect-player-data` (default `true`) | `SERVERSPULSE_COLLECT_PLAYER_DATA` | `-Dserverspulse.collect-player-data=false` |
+| `hash-player-identifiers` (default `false`) | `SERVERSPULSE_HASH_PLAYER_IDENTIFIERS` | `-Dserverspulse.hash-player-identifiers=true` |
+
+Precedence is JVM property > environment > YAML > defaults. Restart or reload the
+agent after changes. Capability metadata announces `performance_only` and/or
+`hashed_player_identifiers`. Server settings also expose **Collect player data**:
+disabling it drops incoming player data independently of agent configuration and
+retains historical data. Apply backend migrations before deploying these features.
+
+For Velocity, install exactly one matching jar in `plugins/`: the regular jar on
+Velocity 3 and the `velocity-v4` jar on 4.3.1. They share source and descriptor but
+compile independently. The locally supplied 4.3.1 API declares Java 25, so this
+variant requires Java 25 even on a proxy otherwise configured for an older JVM.

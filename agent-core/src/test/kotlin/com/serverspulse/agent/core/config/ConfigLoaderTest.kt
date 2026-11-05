@@ -41,6 +41,17 @@ class ConfigLoaderTest {
         } finally { folder.deleteRecursively() }
     }
 
+    @Test fun networkOverrideOrder() {
+        val folder = Files.createTempDirectory("sp-network").toFile()
+        try {
+            folder.resolve("config.yml").writeText("network: yaml-network")
+            assertEquals("yaml-network", ConfigLoader.load(folder, logger, emptyMap(), emptyMap()).network)
+            val env = mapOf("SERVERSPULSE_NETWORK" to "env-network")
+            assertEquals("env-network", ConfigLoader.load(folder, logger, env, emptyMap()).network)
+            assertEquals("property-network", ConfigLoader.load(folder, logger, env, mapOf("serverspulse.network" to "property-network")).network)
+        } finally { folder.deleteRecursively() }
+    }
+
     @Test fun folderOverrideSelectsConfigLocation() {
         val folder = Files.createTempDirectory("sp-folder").toFile()
         try {

@@ -16,6 +16,7 @@ object ConfigLoader {
         
         # Your server's API key (get this from the ServersPulse dashboard)
         api-key: ""
+        network: ""
         
         # Backend URL (do not change unless self-hosting)
         backend-url: "https://api.serverspulse.com"
@@ -126,6 +127,7 @@ object ConfigLoader {
 
             AgentConfig(
                 apiKey = (data["api-key"] as? String) ?: "",
+                network = (data["network"] as? String) ?: "",
                 backendUrl = (data["backend-url"] as? String) ?: AgentConfig.DEFAULT_BACKEND_URL,
                 intervalSeconds = (data["interval-seconds"] as? Number)?.toInt()
                     ?: AgentConfig.DEFAULT_INTERVAL_SECONDS,
@@ -157,6 +159,7 @@ object ConfigLoader {
                 it.toBooleanStrictOrNull() ?: throw IllegalArgumentException("serverspulse.hash-player-identifiers must be true or false")
             } ?: fromFile.hashPlayerIdentifiers,
             apiKey = override("api-key") ?: fromFile.apiKey,
+            network = override("network") ?: fromFile.network,
             backendUrl = override("backend-url") ?: fromFile.backendUrl,
             intervalSeconds = override("interval-seconds")?.let {
                 it.toIntOrNull() ?: throw IllegalArgumentException("serverspulse.interval-seconds must be an integer")

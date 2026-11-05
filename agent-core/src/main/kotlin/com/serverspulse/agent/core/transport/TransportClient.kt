@@ -131,6 +131,22 @@ class TransportClient(
         .writeTimeout(10, TimeUnit.SECONDS)
         .build()
 
+    fun sendCleanStop(bootId: String) {
+        val request = Request.Builder()
+            .url(backendUrl.trimEnd('/') + "/api/v1/ingest/stop")
+            .header("X-API-Key", apiKey)
+            .post(gson.toJson(mapOf("bootId" to bootId)).toRequestBody(JSON_MEDIA))
+            .build()
+        try {
+            httpClient.newBuilder().callTimeout(2, java.util.concurrent.TimeUnit.SECONDS).build()
+                .newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) logger.debug("Clean stop rejected: ${response.code}")
+                }
+        } catch (e: IOException) {
+            logger.debug("Clean stop signal failed: ${e.message}")
+        }
+    }
+
     /**
      * Sends a snapshot to the ingest endpoint with retry.
      * This is called from an async thread - never from the main server thread.
@@ -147,11 +163,12 @@ class TransportClient(
      * Sends plugin/mod metadata to the backend.
      * Intended to be called once on startup/reload.
      */
-    fun sendAgentInfo(agentVersion: String, capabilities: List<String> = emptyList()): Boolean {
+    fun sendAgentInfo(agentVersion: String, capabilities: List<String> = emptyList(), network: String = ""): Boolean {
         val url = backendUrl.trimEnd('/') + AGENT_INFO_PATH
         val json = gson.toJson(
             mapOf(
                 "agentVersion" to agentVersion,
+                "network" to network,
                 "capabilities" to capabilities
             )
         )

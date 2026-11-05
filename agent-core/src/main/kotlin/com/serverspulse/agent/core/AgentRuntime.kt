@@ -126,6 +126,7 @@ class AgentRuntime(
      * Call this from the platform's onDisable/shutdown hook.
      */
     fun stop() {
+        val wasRunning = running
         ServersPulse.setRunning(false)
         running = false
         collectionTask?.cancel()
@@ -140,6 +141,7 @@ class AgentRuntime(
             backendCommandDispatcher.shutdown()
         }
         if (::transport.isInitialized) {
+            if (wasRunning) transport.sendCleanStop(PROCESS_BOOT_ID)
             transport.shutdown()
         }
 
@@ -368,7 +370,12 @@ class AgentRuntime(
 
         try {
             // Assemble snapshot on main thread (safe world access)
-            var snapshot = assembler.assemble().copy(customTelemetry = ServersPulse.drain())
+            var snapshot = assembler.assemble().copy(
+                customTelemetry = ServersPulse.drain(),
+                bootId = PROCESS_BOOT_ID,
+                processStartedAt = PROCESS_STARTED_AT,
+                network = config.network.takeIf { it.isNotBlank() }
+            )
             val requestSequence = ingestSequence.incrementAndGet()
 
             // Reading a player's world and latency is main-thread work, so it
@@ -541,7 +548,7 @@ class AgentRuntime(
         val capabilities = AgentCapabilityReport.resolve(platform, config, geolocation?.isReady == true)
         platform.scheduler().runAsync(Runnable {
             try {
-                val ok = transport.sendAgentInfo(agentVersion, capabilities)
+                val ok = transport.sendAgentInfo(agentVersion, capabilities, config.network)
                 if (!ok && config.debug) {
                     logger.debug("Failed to update backend agent version metadata.")
                 }
@@ -578,6 +585,8 @@ class AgentRuntime(
     }
 
     private companion object {
+        val PROCESS_BOOT_ID = java.util.UUID.randomUUID().toString()
+        val PROCESS_STARTED_AT = java.time.Instant.ofEpochMilli(java.lang.management.ManagementFactory.getRuntimeMXBean().startTime).toString()
         /** One batch per collection tick, matching the backend's per-request cap. */
         const val SWITCH_FLUSH_LIMIT = 200
         const val GEOLOCATION_CACHE_DIR = "geoip"

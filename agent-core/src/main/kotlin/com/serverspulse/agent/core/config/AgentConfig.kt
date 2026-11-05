@@ -8,6 +8,8 @@ data class AgentConfig(
     /** The API key used to authenticate with the backend. */
     val apiKey: String = "",
 
+    val network: String = "",
+
     /** The backend ingestion URL. */
     val backendUrl: String = DEFAULT_BACKEND_URL,
 
@@ -59,6 +61,9 @@ data class AgentConfig(
 
     fun validate(): List<String> {
         val errors = mutableListOf<String>()
+        if (network.isNotBlank() && !network.matches(Regex("[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}"))) {
+            errors.add("network must be a network UUID")
+        }
         if (apiKey.isBlank()) {
             errors.add("api-key must be set in config.yml")
         }

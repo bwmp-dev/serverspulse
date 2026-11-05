@@ -28,5 +28,8 @@ data class ServerSnapshot(
     val diskUsedMB: Long? = null,
     val diskTotalMB: Long? = null,
     val customTelemetry: CustomTelemetry? = null,
-    val playerPings: List<PlayerPingSnapshot> = emptyList()
+    val playerPings: List<PlayerPingSnapshot> = emptyList(),
+    val bootId: String? = null,
+    val processStartedAt: String? = null,
+    val network: String? = null
 )
